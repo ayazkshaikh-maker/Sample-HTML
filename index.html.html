@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flight Companion">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#020408">
+<meta name="description" content="SalamAir Pilot Companion — A320 tools, logbook, quiz and reference">
+<title>✈️ Flight Companion — Hussain</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:ital,wght@0,200;0,300;0,400;0,600;1,300&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#020408;--deep:#050d1a;--panel:rgba(5,20,45,0.85);--glass:rgba(10,35,70,0.6);
+  --border:rgba(0,180,255,0.18);--cyan:#00c8ff;--cyan2:#00e5ff;--amber:#ffb300;
+  --amber2:#ff8c00;--green:#00ff9d;--red:#ff3b5c;--white:#e8f4ff;--muted:rgba(180,220,255,0.45);
+  --font-hud:'Orbitron',monospace;--font-body:'Exo 2',sans-serif;--font-mono:'Share Tech Mono',monospace;
+  --glow-cyan:0 0 20px rgba(0,200,255,0.4),0 0 60px rgba(0,200,255,0.15);
+  --glow-amber:0 0 20px rgba(255,179,0,0.5),0 0 60px rgba(255,140,0,0.2);
+  --glow-green:0 0 15px rgba(0,255,157,0.5);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--void);color:var(--white);font-family:var(--font-body);min-height:100vh;overflow-x:hidden;}
+#starCanvas{position:fixed;inset:0;z-index:0;width:100%;height:100%;pointer-events:none;}
+.atmo{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 60% 40% at 50% 100%,rgba(0,80,160,0.25) 0%,transparent 70%),
+  radial-gradient(ellipse 40% 60% at 10% 50%,rgba(0,50,120,0.15) 0%,transparent 60%);}
+.hud-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(0,180,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,180,255,0.04) 1px,transparent 1px);
+  background-size:60px 60px;animation:gridDrift 40s linear infinite;}
+@keyframes gridDrift{100%{background-position:60px 60px;}}
+.scanline{position:fixed;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,0.5),transparent);
+  z-index:1;pointer-events:none;animation:scan 8s linear infinite;}
+@keyframes scan{0%{top:-2px;}100%{top:100vh;}}
+#app{position:relative;z-index:2;min-height:100vh;display:flex;flex-direction:column;}
+
+/* BOOT */
+#boot{position:fixed;inset:0;z-index:9999;background:var(--void);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.8s ease,visibility 0.8s;}
+#boot.hidden{opacity:0;visibility:hidden;}
+.boot-logo{font-family:var(--font-hud);font-size:clamp(2rem,5vw,3.5rem);font-weight:900;letter-spacing:0.3em;color:var(--cyan);text-shadow:var(--glow-cyan);animation:blink 2s ease-in-out infinite;}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.6;}}
+.boot-sub{font-family:var(--font-mono);color:var(--muted);font-size:0.75rem;letter-spacing:0.35em;margin-top:1rem;}
+.boot-bar{width:320px;height:2px;background:rgba(0,200,255,0.12);margin-top:2.5rem;border-radius:2px;overflow:hidden;}
+.boot-fill{height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--cyan2));border-radius:2px;transition:width 0.1s linear;}
+.boot-status{font-family:var(--font-mono);font-size:0.65rem;color:var(--cyan);margin-top:1rem;letter-spacing:0.15em;min-height:1.2em;}
+
+/* HEADER */
+header{display:flex;align-items:center;justify-content:space-between;padding:1rem 2rem;border-bottom:1px solid var(--border);background:rgba(2,4,8,0.85);backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:1rem;}
+.header-logo{display:flex;align-items:center;gap:1rem;}
+.logo-icon{width:44px;height:44px;border:2px solid var(--cyan);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;box-shadow:var(--glow-cyan);animation:rotateSlow 20s linear infinite;}
+@keyframes rotateSlow{to{transform:rotate(360deg);}}
+.logo-text{font-family:var(--font-hud);font-size:1rem;font-weight:700;letter-spacing:0.25em;color:var(--cyan);text-shadow:var(--glow-cyan);}
+.logo-sub{font-size:0.6rem;color:var(--muted);letter-spacing:0.25em;font-family:var(--font-mono);}
+.header-clock{font-family:var(--font-mono);text-align:right;}
+.clock-utc{font-size:1.4rem;color:var(--amber);text-shadow:var(--glow-amber);letter-spacing:0.1em;}
+.clock-label{font-size:0.6rem;color:var(--muted);letter-spacing:0.3em;}
+
+/* TABS */
+.nav-tabs{display:flex;gap:0.25rem;padding:0.75rem 2rem;border-bottom:1px solid var(--border);background:rgba(2,4,8,0.6);overflow-x:auto;scrollbar-width:none;}
+.nav-tabs::-webkit-scrollbar{display:none;}
+.nav-tab{font-family:var(--font-hud);font-size:0.62rem;letter-spacing:0.15em;padding:0.6rem 1.3rem;border:1px solid rgba(0,180,255,0.2);background:transparent;color:var(--muted);cursor:pointer;border-radius:2px;transition:all 0.3s;white-space:nowrap;position:relative;overflow:hidden;}
+.nav-tab::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,200,255,0.1),transparent);opacity:0;transition:opacity 0.3s;}
+.nav-tab:hover::before,.nav-tab.active::before{opacity:1;}
+.nav-tab.active{border-color:var(--cyan);color:var(--cyan);box-shadow:var(--glow-cyan),inset 0 0 20px rgba(0,200,255,0.06);}
+.nav-tab:hover{border-color:rgba(0,200,255,0.4);color:var(--white);}
+
+/* MAIN */
+main{flex:1;padding:1.5rem 2rem;max-width:1600px;margin:0 auto;width:100%;}
+.tab-content{display:none;}
+.tab-content.active{display:block;animation:fadeUp 0.4s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;gap:1rem;margin-bottom:1.5rem;padding-bottom:0.75rem;border-bottom:1px solid var(--border);}
+.sec-title{font-family:var(--font-hud);font-size:0.85rem;letter-spacing:0.25em;color:var(--cyan);text-shadow:var(--glow-cyan);}
+.sec-badge{font-family:var(--font-mono);font-size:0.6rem;padding:0.2rem 0.6rem;border:1px solid var(--amber);color:var(--amber);border-radius:2px;letter-spacing:0.1em;}
+
+/* CARDS */
+.card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1.2rem 1.5rem;backdrop-filter:blur(20px);position:relative;overflow:hidden;transition:border-color 0.3s,box-shadow 0.3s;}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);opacity:0.5;}
+.card:hover{border-color:rgba(0,200,255,0.35);box-shadow:var(--glow-cyan);}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;}
+@media(max-width:900px){.grid-3,.grid-4{grid-template-columns:1fr 1fr;}}
+@media(max-width:580px){.grid-2,.grid-3,.grid-4{grid-template-columns:1fr;}}
+
+/* KPI */
+.kpi{text-align:center;padding:1.4rem 1rem;}
+.kpi-val{font-family:var(--font-hud);font-size:clamp(1.6rem,3vw,2.6rem);font-weight:700;color:var(--cyan);text-shadow:var(--glow-cyan);line-height:1;}
+.kpi-val.amber{color:var(--amber);text-shadow:var(--glow-amber);}
+.kpi-val.green{color:var(--green);text-shadow:var(--glow-green);}
+.kpi-label{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);letter-spacing:0.25em;margin-top:0.5rem;text-transform:uppercase;}
+.kpi-sub{font-size:0.68rem;color:var(--muted);margin-top:0.3rem;}
+
+/* INPUTS */
+label{font-family:var(--font-mono);font-size:0.6rem;letter-spacing:0.18em;color:var(--muted);text-transform:uppercase;display:block;margin-bottom:0.35rem;}
+input[type=number],input[type=text],select{width:100%;background:rgba(0,10,30,0.8);border:1px solid rgba(0,180,255,0.3);color:var(--white);font-family:var(--font-mono);font-size:0.85rem;padding:0.6rem 0.8rem;border-radius:3px;outline:none;transition:border-color 0.3s,box-shadow 0.3s;-moz-appearance:textfield;}
+input::-webkit-inner-spin-button,input::-webkit-outer-spin-button{-webkit-appearance:none;}
+input:focus,select:focus{border-color:var(--cyan);box-shadow:0 0 0 2px rgba(0,200,255,0.15);}
+select option{background:#050d1a;}
+.btn{font-family:var(--font-hud);font-size:0.65rem;letter-spacing:0.2em;padding:0.7rem 1.5rem;background:transparent;border:1px solid var(--cyan);color:var(--cyan);cursor:pointer;border-radius:3px;transition:all 0.3s;text-transform:uppercase;position:relative;overflow:hidden;}
+.btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,200,255,0.12),transparent);opacity:0;transition:opacity 0.3s;}
+.btn:hover::after{opacity:1;}
+.btn:hover{box-shadow:var(--glow-cyan);}
+.btn-amber{border-color:var(--amber);color:var(--amber);}
+.btn-amber:hover{box-shadow:var(--glow-amber);}
+.btn-green{border-color:var(--green);color:var(--green);}
+.btn-full{width:100%;margin-top:0.75rem;}
+
+/* RESULT BOX */
+.result-box{background:rgba(0,200,255,0.04);border:1px solid rgba(0,200,255,0.22);border-radius:3px;padding:1rem 1.2rem;margin-top:1rem;font-family:var(--font-mono);font-size:0.78rem;color:var(--cyan2);line-height:1.8;display:none;}
+.result-box.show{display:block;animation:fadeUp 0.3s ease;}
+.result-row{display:flex;justify-content:space-between;align-items:center;padding:0.25rem 0;border-bottom:1px solid rgba(0,180,255,0.07);}
+.result-row:last-child{border:none;}
+.result-key{color:var(--muted);font-size:0.63rem;letter-spacing:0.08em;}
+.result-val{color:var(--cyan);font-weight:bold;}
+.result-val.ok{color:var(--green);}
+.result-val.warn{color:var(--amber);}
+.result-val.fail{color:var(--red);}
+
+/* FLASHCARD */
+.fc-area{max-width:700px;margin:0 auto;}
+.fc-wrap{perspective:1200px;height:280px;cursor:pointer;margin:1.5rem 0;}
+.fc-inner{width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 0.7s cubic-bezier(0.4,0.2,0.2,1);}
+.fc-inner.flipped{transform:rotateY(180deg);}
+.fc-face{position:absolute;inset:0;backface-visibility:hidden;border-radius:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;text-align:center;}
+.fc-front{background:linear-gradient(135deg,rgba(0,30,70,0.95),rgba(5,15,40,0.95));border:1px solid var(--cyan);box-shadow:var(--glow-cyan);}
+.fc-back{background:linear-gradient(135deg,rgba(0,50,30,0.95),rgba(5,20,10,0.95));border:1px solid var(--green);box-shadow:var(--glow-green);transform:rotateY(180deg);}
+.fc-q{font-family:var(--font-body);font-size:1rem;font-weight:300;line-height:1.6;color:var(--white);}
+.fc-a{font-family:var(--font-body);font-size:0.88rem;font-weight:300;line-height:1.6;color:var(--green);}
+.fc-tag{font-family:var(--font-hud);font-size:0.52rem;letter-spacing:0.18em;padding:0.22rem 0.65rem;border-radius:2px;margin-bottom:1rem;}
+.fc-tag.ft{background:rgba(0,200,255,0.08);color:var(--cyan);border:1px solid rgba(0,200,255,0.25);}
+.fc-tag.bt{background:rgba(0,255,157,0.06);color:var(--green);border:1px solid rgba(0,255,157,0.2);}
+.fc-hint{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);margin-top:1rem;letter-spacing:0.12em;}
+.fc-controls{display:flex;gap:0.75rem;justify-content:center;align-items:center;flex-wrap:wrap;}
+.fc-counter{font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);text-align:center;margin-top:0.5rem;}
+.fc-filters{display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;}
+.fc-filter{font-family:var(--font-hud);font-size:0.52rem;letter-spacing:0.1em;padding:0.28rem 0.75rem;border:1px solid rgba(0,180,255,0.18);background:transparent;color:var(--muted);cursor:pointer;border-radius:2px;transition:all 0.3s;}
+.fc-filter.active,.fc-filter:hover{border-color:var(--cyan);color:var(--cyan);}
+
+/* QUIZ */
+.quiz-q{font-family:var(--font-body);font-size:1.05rem;font-weight:300;line-height:1.7;color:var(--white);padding:1rem 0;}
+.quiz-num{font-family:var(--font-hud);font-size:0.58rem;color:var(--cyan);letter-spacing:0.2em;margin-bottom:0.4rem;}
+.quiz-opts{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin:1rem 0;}
+@media(max-width:600px){.quiz-opts{grid-template-columns:1fr;}}
+.q-opt{background:rgba(0,15,40,0.8);border:1px solid rgba(0,180,255,0.2);color:var(--white);font-family:var(--font-body);font-size:0.85rem;padding:0.75rem 1rem;border-radius:3px;cursor:pointer;text-align:left;transition:all 0.25s;line-height:1.4;}
+.q-opt:hover:not(.disabled){border-color:var(--cyan);background:rgba(0,200,255,0.07);}
+.q-opt.correct{border-color:var(--green);background:rgba(0,255,157,0.08);color:var(--green);}
+.q-opt.wrong{border-color:var(--red);background:rgba(255,59,92,0.06);color:var(--red);}
+.q-opt.disabled{cursor:default;}
+.quiz-fb{font-family:var(--font-body);font-size:0.8rem;line-height:1.6;padding:0.75rem 1rem;border-radius:3px;display:none;margin-top:0.5rem;}
+.quiz-fb.ok{display:block;background:rgba(0,255,157,0.05);border:1px solid rgba(0,255,157,0.18);color:var(--green);}
+.quiz-fb.fail{display:block;background:rgba(255,59,92,0.05);border:1px solid rgba(255,59,92,0.18);color:#ff8099;}
+.score-bar-wrap{height:3px;background:rgba(255,255,255,0.05);border-radius:4px;overflow:hidden;margin:1rem 0;}
+.score-bar{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:4px;transition:width 0.5s ease;width:0;}
+.quiz-complete{text-align:center;padding:3rem 1rem;font-family:var(--font-hud);display:none;flex-direction:column;align-items:center;}
+.quiz-complete-score{font-size:3rem;color:var(--cyan);text-shadow:var(--glow-cyan);animation:blink 2s ease-in-out infinite;}
+
+/* LOGBOOK */
+.bar-chart{display:flex;align-items:flex-end;gap:0.5rem;height:120px;}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:0.3rem;}
+.bar-fill{width:100%;border-radius:2px 2px 0 0;background:linear-gradient(to top,var(--cyan),rgba(0,200,255,0.3));box-shadow:0 0 8px rgba(0,200,255,0.25);transition:height 1s cubic-bezier(0.34,1.56,0.64,1);min-height:2px;}
+.bar-label{font-family:var(--font-mono);font-size:0.52rem;color:var(--muted);text-align:center;}
+.bar-val{font-family:var(--font-mono);font-size:0.52rem;color:var(--cyan);}
+.timeline{position:relative;padding-left:2rem;}
+.timeline::before{content:'';position:absolute;left:0.6rem;top:0;bottom:0;width:1px;background:linear-gradient(to bottom,var(--cyan),transparent);}
+.tl-item{position:relative;padding:0 0 1.5rem 1rem;}
+.tl-dot{position:absolute;left:-1.7rem;top:0.2rem;width:10px;height:10px;border-radius:50%;background:var(--deep);border:2px solid var(--cyan);box-shadow:var(--glow-cyan);transition:all 0.3s;}
+.tl-item:hover .tl-dot,.tl-item.tl-active .tl-dot{background:var(--cyan);transform:scale(1.3);}
+.tl-date{font-family:var(--font-hud);font-size:0.52rem;color:var(--amber);letter-spacing:0.15em;}
+.tl-title{font-family:var(--font-body);font-size:0.9rem;font-weight:600;color:var(--white);margin:0.2rem 0;}
+.tl-desc{font-size:0.76rem;color:var(--muted);line-height:1.5;}
+.tl-badge{display:inline-block;font-family:var(--font-hud);font-size:0.48rem;letter-spacing:0.1em;padding:0.15rem 0.5rem;border:1px solid rgba(0,200,255,0.3);color:var(--cyan);border-radius:2px;margin-top:0.4rem;}
+
+/* AIRPORTS */
+.airport-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:0.75rem;}
+.apt-card{background:var(--glass);border:1px solid var(--border);border-radius:3px;padding:0.8rem;cursor:pointer;transition:all 0.3s;}
+.apt-card:hover{border-color:var(--cyan);box-shadow:var(--glow-cyan);}
+.apt-icao{font-family:var(--font-hud);font-size:1.1rem;color:var(--cyan);text-shadow:var(--glow-cyan);}
+.apt-iata{font-family:var(--font-mono);font-size:0.7rem;color:var(--amber);}
+.apt-name{font-size:0.68rem;color:var(--muted);margin-top:0.2rem;line-height:1.3;}
+.apt-detail{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:1.2rem;margin-top:1rem;display:none;animation:fadeUp 0.3s ease;}
+.apt-detail.show{display:block;}
+
+/* PHONETIC */
+.phonetic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:0.5rem;}
+.ph-item{background:var(--glass);border:1px solid var(--border);border-radius:3px;padding:0.6rem;text-align:center;cursor:pointer;transition:all 0.3s;}
+.ph-item:hover{border-color:var(--amber);background:rgba(255,179,0,0.04);}
+.ph-letter{font-family:var(--font-hud);font-size:1.3rem;color:var(--amber);text-shadow:var(--glow-amber);}
+.ph-word{font-family:var(--font-body);font-size:0.72rem;color:var(--white);}
+.ph-pron{font-family:var(--font-mono);font-size:0.58rem;color:var(--muted);}
+
+/* MISC */
+.tag{display:inline-block;font-family:var(--font-hud);font-size:0.5rem;letter-spacing:0.12em;padding:0.18rem 0.55rem;border-radius:2px;background:rgba(0,200,255,0.07);color:var(--cyan);border:1px solid rgba(0,200,255,0.18);}
+.tag.amber{background:rgba(255,179,0,0.07);color:var(--amber);border-color:rgba(255,179,0,0.2);}
+.tag.green{background:rgba(0,255,157,0.05);color:var(--green);border-color:rgba(0,255,157,0.18);}
+.row{display:flex;gap:1rem;flex-wrap:wrap;}
+.row>.card{flex:1;min-width:260px;}
+.mt1{margin-top:1rem;}.mt2{margin-top:1.5rem;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+@media(max-width:600px){.form-grid{grid-template-columns:1fr;}}
+.form-group{margin-bottom:0.85rem;}
+.divider{border:none;border-top:1px solid var(--border);margin:1.2rem 0;}
+.progress-bar{height:3px;background:rgba(0,200,255,0.08);border-radius:2px;overflow:hidden;margin-top:0.5rem;}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--green));border-radius:2px;transition:width 0.5s ease;}
+table.hud-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:0.75rem;}
+table.hud-table th{font-family:var(--font-hud);font-size:0.52rem;letter-spacing:0.12em;color:var(--muted);padding:0.5rem 0.7rem;border-bottom:1px solid var(--border);text-align:left;}
+table.hud-table td{padding:0.45rem 0.7rem;border-bottom:1px solid rgba(0,180,255,0.06);color:var(--white);}
+table.hud-table tr:hover td{background:rgba(0,200,255,0.03);}
+.col-cyan{color:var(--cyan);}.col-amber{color:var(--amber);}.col-green{color:var(--green);}
+/* TOAST */
+#toast{position:fixed;bottom:2rem;right:2rem;z-index:9000;background:rgba(0,200,255,0.1);border:1px solid var(--cyan);border-radius:3px;padding:0.7rem 1.2rem;font-family:var(--font-mono);font-size:0.75rem;color:var(--cyan);transform:translateY(100px);opacity:0;transition:all 0.4s cubic-bezier(0.34,1.56,0.64,1);backdrop-filter:blur(20px);pointer-events:none;}
+#toast.show{transform:translateY(0);opacity:1;}
+/* GREETING */
+.greeting{background:linear-gradient(135deg,rgba(0,30,70,0.9),rgba(5,10,30,0.9));border:1px solid rgba(0,200,255,0.2);border-radius:4px;padding:2rem;margin-bottom:1.5rem;position:relative;overflow:hidden;}
+.greeting::after{content:'✈';position:absolute;right:2rem;top:50%;transform:translateY(-50%);font-size:5rem;opacity:0.04;}
+.greeting-callsign{font-family:var(--font-hud);font-size:clamp(1.1rem,3vw,1.9rem);color:var(--cyan);text-shadow:var(--glow-cyan);letter-spacing:0.15em;}
+.greeting-msg{font-family:var(--font-body);font-weight:200;font-size:0.95rem;color:var(--muted);margin-top:0.5rem;line-height:1.6;max-width:600px;}
+.greeting-detail{font-family:var(--font-mono);font-size:0.62rem;color:var(--amber);margin-top:1rem;letter-spacing:0.12em;}
+
+<style>
+/* PWA Mobile Enhancements */
+body { padding-bottom: env(safe-area-inset-bottom); }
+header { padding-top: max(1rem, env(safe-area-inset-top)); }
+* { -webkit-tap-highlight-color: transparent; }
+input, select, button { font-size: 16px !important; } /* prevents iOS zoom on focus */
+@media (max-width: 480px) {
+  main { padding: 1rem; }
+  .nav-tabs { padding: 0.5rem 0.75rem; }
+  header { padding: 0.75rem 1rem; }
+  .greeting { padding: 1.25rem; }
+  .kpi-val { font-size: 1.5rem !important; }
+  .fc-wrap { height: 240px; }
+  .quiz-opts { grid-template-columns: 1fr !important; }
+  .grid-4 { grid-template-columns: 1fr 1fr !important; }
+}
+</style>
+</style>
+</head>
+<body>
+<div id="boot">
+  <div class="boot-logo">OMA FLIGHT OPS</div>
+  <div class="boot-sub">PILOT COMPANION SYSTEM v2.4 · SALAM AIR</div>
+  <div class="boot-bar"><div class="boot-fill" id="bootFill"></div></div>
+  <div class="boot-status" id="bootStatus">INITIALISING AVIONICS...</div>
+</div>
+<canvas id="starCanvas"></canvas>
+<div class="atmo"></div>
+<div class="hud-grid"></div>
+<div class="scanline"></div>
+<div id="app">
+<header>
+  <div class="header-logo">
+    <div class="logo-icon">✈</div>
+    <div>
+      <div class="logo-text">FLIGHT COMPANION</div>
+      <div class="logo-sub">SALAM AIR · MUSCAT OMA · A320 SERIES</div>
+    </div>
+  </div>
+  <div class="header-clock">
+    <div class="clock-utc" id="clockUTC">--:--:--Z</div>
+    <div class="clock-label">ZULU / UTC</div>
+  </div>
+</header>
+<div class="nav-tabs">
+  <button class="nav-tab active" onclick="showTab('home')" data-tab="home">🏠 HOME BASE</button>
+  <button class="nav-tab" onclick="showTab('tools')" data-tab="tools">⚡ FLIGHT TOOLS</button>
+  <button class="nav-tab" onclick="showTab('logbook')" data-tab="logbook">📘 LOGBOOK</button>
+  <button class="nav-tab" onclick="showTab('flashcards')" data-tab="flashcards">🃏 STUDY CARDS</button>
+  <button class="nav-tab" onclick="showTab('quiz')" data-tab="quiz">🎯 PROFICIENCY QUIZ</button>
+  <button class="nav-tab" onclick="showTab('airports')" data-tab="airports">🗺️ AIRPORTS</button>
+  <button class="nav-tab" onclick="showTab('reference')" data-tab="reference">📡 QUICK REF</button>
+</div>
+<main>
+<!-- HOME TAB -->
+<div class="tab-content active" id="tab-home">
+  <div class="greeting">
+    <div class="greeting-callsign">WELCOME ABOARD, CAPTAIN HUSSAIN ✈</div>
+    <div class="greeting-msg">Your personal aviation companion — built with respect for the skies you command. Pre-flight planning tools, aviation knowledge cards, logbook tracker and proficiency checks — all in one cockpit-grade dashboard.</div>
+    <div class="greeting-detail">SalamAir · OMA Operations · Airbus A320-214 · OMAA / OOMS · Oman FIR</div>
+  </div>
+  <div class="grid-4" style="margin-bottom:1rem;">
+    <div class="card kpi"><div class="kpi-val" id="homeHours">—</div><div class="kpi-label">TOTAL HOURS</div><div class="kpi-sub">Enter in Logbook tab</div></div>
+    <div class="card kpi"><div class="kpi-val amber" id="homeSectors">—</div><div class="kpi-label">SECTORS FLOWN</div></div>
+    <div class="card kpi"><div class="kpi-val green" id="homeQuiz">0%</div><div class="kpi-label">QUIZ SCORE</div></div>
+    <div class="card kpi"><div class="kpi-val" id="homeFc">0/50</div><div class="kpi-label">CARDS MASTERED</div></div>
+  </div>
+  <div class="row">
+    <div class="card" style="flex:2;min-width:280px;">
+      <div class="sec-hdr"><div class="sec-title">🌍 WORLD CLOCKS</div></div>
+      <div class="grid-4" id="worldClocks" style="gap:0.75rem;"></div>
+    </div>
+    <div class="card" style="flex:1;min-width:200px;">
+      <div class="sec-hdr"><div class="sec-title">📋 QUICK LAUNCH</div></div>
+      <div style="display:flex;flex-direction:column;gap:0.5rem;">
+        <button class="btn btn-full" onclick="showTab('tools')">⚡ FUEL CALCULATOR</button>
+        <button class="btn btn-amber btn-full" onclick="showTab('flashcards')">🃏 STUDY MODE</button>
+        <button class="btn btn-green btn-full" onclick="showTab('quiz')">🎯 START QUIZ</button>
+        <button class="btn btn-full" onclick="showTab('logbook')">📘 MY LOGBOOK</button>
+      </div>
+    </div>
+  </div>
+  <div class="card mt2">
+    <div class="sec-hdr"><div class="sec-title">📌 KEY GCAA / EASA REMINDERS</div><div class="sec-badge">OMAN CAA · EASA</div></div>
+    <div class="grid-3" style="gap:0.75rem;">
+      <div style="border-left:2px solid var(--cyan);padding-left:1rem;"><div class="tag">MEDICAL</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">Class 1 Medical — valid 12 months (&lt;40 yrs) or 6 months (≥40 yrs)</div></div>
+      <div style="border-left:2px solid var(--amber);padding-left:1rem;"><div class="tag amber">TYPE RATING</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">A320 type rating proficiency check every 12 months per EASA Part-FCL</div></div>
+      <div style="border-left:2px solid var(--green);padding-left:1rem;"><div class="tag green">LINE CHECKS</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">Annual OPC + LPC required. CRM training 3-year cycle per EASA</div></div>
+      <div style="border-left:2px solid var(--cyan);padding-left:1rem;"><div class="tag">RECENCY</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">3 take-offs and landings in 90 days for passenger carrying ops</div></div>
+      <div style="border-left:2px solid var(--amber);padding-left:1rem;"><div class="tag amber">FTL</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">Max 900 hrs/year, 100 hrs/28 days. FDP limits per EASA ORO.FTL</div></div>
+      <div style="border-left:2px solid var(--green);padding-left:1rem;"><div class="tag green">REST</div><div style="font-size:0.8rem;margin-top:0.5rem;color:var(--muted);">Min 10 hrs rest before FDP. Local night 22:00–08:00 LT Muscat</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOOLS TAB -->
+<div class="tab-content" id="tab-tools">
+  <div class="sec-hdr"><div class="sec-title">⚡ FLIGHT PLANNING TOOLS</div><div class="sec-badge">A320-214 · CFM56-5B</div></div>
+  <div class="row">
+    <div class="card" style="flex:1;min-width:300px;">
+      <div class="sec-hdr"><div class="sec-title">⛽ FUEL BURN & RESERVES</div></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Route Distance (NM)</label><input type="number" id="fuelDist" placeholder="e.g. 420"></div>
+        <div class="form-group"><label>Flight Level</label><select id="fuelFL"><option value="390">FL390</option><option value="370">FL370</option><option value="350" selected>FL350</option><option value="320">FL320</option><option value="280">FL280</option><option value="250">FL250</option></select></div>
+        <div class="form-group"><label>Passengers (PAX)</label><input type="number" id="fuelPax" placeholder="e.g. 168" max="186"></div>
+        <div class="form-group"><label>Cargo (kg)</label><input type="number" id="fuelCargo" placeholder="e.g. 2500"></div>
+        <div class="form-group"><label>Wind Component (kt +head)</label><input type="number" id="fuelWind" value="0"></div>
+        <div class="form-group"><label>Alternate Distance (NM)</label><input type="number" id="fuelAlt" value="60"></div>
+      </div>
+      <button class="btn btn-full" onclick="calcFuel()">COMPUTE FUEL REQUIREMENTS</button>
+      <div class="result-box" id="fuelResult"></div>
+    </div>
+    <div class="card" style="flex:1;min-width:260px;">
+      <div class="sec-hdr"><div class="sec-title">📊 DENSITY ALTITUDE</div></div>
+      <div class="form-group"><label>Aerodrome Elevation (ft)</label><input type="number" id="daElev" value="48"></div>
+      <div class="form-group"><label>OAT (°C)</label><input type="number" id="daOAT" value="42"></div>
+      <div class="form-group"><label>QNH (hPa)</label><input type="number" id="daQNH" value="1013"></div>
+      <button class="btn btn-full" onclick="calcDA()">CALCULATE</button>
+      <div class="result-box" id="daResult"></div>
+      <hr class="divider">
+      <div class="sec-hdr"><div class="sec-title">🌬️ CROSSWIND COMPONENT</div></div>
+      <div class="form-group"><label>Runway Heading (°)</label><input type="number" id="cwRwy" placeholder="e.g. 260" min="0" max="360"></div>
+      <div class="form-group"><label>Wind Direction (°)</label><input type="number" id="cwWdir" placeholder="e.g. 310" min="0" max="360"></div>
+      <div class="form-group"><label>Wind Speed (kt)</label><input type="number" id="cwSpeed" placeholder="e.g. 18"></div>
+      <button class="btn btn-full" onclick="calcCW()">CALCULATE</button>
+      <div class="result-box" id="cwResult"></div>
+    </div>
+  </div>
+  <div class="card mt2">
+    <div class="sec-hdr"><div class="sec-title">⚖️ A320 WEIGHT & BALANCE ESTIMATOR</div><div class="sec-badge">MTOW 73,500 KG</div></div>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+      <div style="flex:1;min-width:270px;">
+        <div class="form-grid">
+          <div class="form-group"><label>OEW (kg)</label><input type="number" id="wbOEW" value="42100"></div>
+          <div class="form-group"><label>Fuel (kg)</label><input type="number" id="wbFuel" placeholder="e.g. 8500"></div>
+          <div class="form-group"><label>PAX (× 95 kg avg)</label><input type="number" id="wbPax" placeholder="e.g. 160" max="186"></div>
+          <div class="form-group"><label>Cargo / Bags (kg)</label><input type="number" id="wbCargo" placeholder="e.g. 3000"></div>
+        </div>
+        <button class="btn btn-full" onclick="calcWB()">COMPUTE W&B</button>
+        <div class="result-box" id="wbResult"></div>
+      </div>
+      <div style="flex:1;min-width:240px;display:flex;align-items:center;justify-content:center;">
+        <canvas id="wbCanvas" width="320" height="200" style="width:100%;max-width:380px;border:1px solid rgba(0,200,255,0.2);border-radius:3px;display:block;"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="card mt2">
+    <div class="sec-hdr"><div class="sec-title">💨 A320 V-SPEED REFERENCE</div><div class="sec-badge">APPROXIMATE VALUES</div></div>
+    <div class="form-grid" style="margin-bottom:0.75rem;">
+      <div class="form-group"><label>TOW (kg)</label><input type="number" id="vsWeight" placeholder="e.g. 66000" min="40000" max="73500"></div>
+      <div class="form-group"><label>Flap Config</label><select id="vsFlap"><option value="1">CONF 1+F</option><option value="2">CONF 2</option><option value="3">CONF 3</option></select></div>
+    </div>
+    <button class="btn" onclick="calcVSpeeds()">COMPUTE V-SPEEDS</button>
+    <div class="result-box" id="vsResult"></div>
+  </div>
+</div>
+
+<!-- LOGBOOK TAB -->
+<div class="tab-content" id="tab-logbook">
+  <div class="sec-hdr"><div class="sec-title">📘 PILOT LOGBOOK & CAREER TRACKER</div></div>
+  <div class="row" style="margin-bottom:1.5rem;">
+    <div class="card" style="flex:1;min-width:280px;">
+      <div class="sec-hdr"><div class="sec-title">✍️ UPDATE MY STATS</div></div>
+      <div class="form-grid">
+        <div class="form-group"><label>Total Hours (all types)</label><input type="number" id="lbTotal" placeholder="e.g. 4200"></div>
+        <div class="form-group"><label>A320 Hours</label><input type="number" id="lbA320" placeholder="e.g. 2800"></div>
+        <div class="form-group"><label>PIC Hours</label><input type="number" id="lbPIC" placeholder="e.g. 1200"></div>
+        <div class="form-group"><label>Night Hours</label><input type="number" id="lbNight" placeholder="e.g. 450"></div>
+        <div class="form-group"><label>IFR Hours</label><input type="number" id="lbIFR" placeholder="e.g. 3800"></div>
+        <div class="form-group"><label>Sectors Flown</label><input type="number" id="lbSectors" placeholder="e.g. 3400"></div>
+        <div class="form-group"><label>Countries Visited</label><input type="number" id="lbCountries" placeholder="e.g. 28"></div>
+        <div class="form-group"><label>Years Flying</label><input type="number" id="lbYears" placeholder="e.g. 8"></div>
+      </div>
+      <button class="btn btn-full" onclick="updateLogbook()">UPDATE LOGBOOK</button>
+    </div>
+    <div style="flex:2;min-width:300px;display:flex;flex-direction:column;gap:1rem;">
+      <div class="grid-4">
+        <div class="card kpi"><div class="kpi-val" id="lbKpiTotal">—</div><div class="kpi-label">TOTAL HRS</div></div>
+        <div class="card kpi"><div class="kpi-val amber" id="lbKpiPIC">—</div><div class="kpi-label">PIC HRS</div></div>
+        <div class="card kpi"><div class="kpi-val green" id="lbKpiSectors">—</div><div class="kpi-label">SECTORS</div></div>
+        <div class="card kpi"><div class="kpi-val" id="lbKpiEarth">—</div><div class="kpi-label">EARTH LAPS ×</div></div>
+      </div>
+      <div class="card">
+        <div style="font-family:var(--font-hud);font-size:0.65rem;color:var(--muted);margin-bottom:0.75rem;letter-spacing:0.15em;">FLIGHT HOURS BY CATEGORY</div>
+        <div class="bar-chart" id="lbBarChart"></div>
+      </div>
+      <div class="card"><div class="sec-hdr"><div class="sec-title">🌍 FUN STATS</div></div><div id="funStats" style="font-family:var(--font-mono);font-size:0.75rem;color:var(--muted);line-height:2;">Enter your hours above to unlock your aviation story...</div></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="sec-hdr"><div class="sec-title">🏆 AVIATION CAREER MILESTONES</div></div>
+    <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+      <div class="timeline" style="flex:1;min-width:240px;">
+        <div class="tl-item tl-active"><div class="tl-dot"></div><div class="tl-date">MILESTONE 1</div><div class="tl-title">First Solo Flight</div><div class="tl-desc">The moment every pilot remembers forever. The cockpit was yours alone.</div><div class="tl-badge">PPL JOURNEY</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">MILESTONE 2</div><div class="tl-title">Private Pilot Licence</div><div class="tl-desc">PPL issued. The world of aviation officially opened its doors.</div><div class="tl-badge">PPL</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">MILESTONE 3</div><div class="tl-title">Commercial Pilot Licence</div><div class="tl-desc">CPL — the licence that turned passion into a professional career.</div><div class="tl-badge">CPL · EASA</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">MILESTONE 4</div><div class="tl-title">A320 Type Rating</div><div class="tl-desc">Mastering fly-by-wire Airbus. FMGS, ECAM, envelope protection — all yours.</div><div class="tl-badge">A320 · CFM56-5B</div></div>
+      </div>
+      <div class="timeline" style="flex:1;min-width:240px;">
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">MILESTONE 5</div><div class="tl-title">First Officer — SalamAir</div><div class="tl-desc">Right seat on the flight deck. Gulf skies, Oman operations, professional airline life.</div><div class="tl-badge">OMA · F/O</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">MILESTONE 6</div><div class="tl-title">ATPL Frozen / Full</div><div class="tl-desc">All 14 ATPL theory subjects cleared. The foundation of command authority.</div><div class="tl-badge">ATPL · GCAA</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">NEXT GOAL ★</div><div class="tl-title">Command Upgrade — Captain</div><div class="tl-desc">Left seat. Command. The title that puts the skies in your hands completely.</div><div class="tl-badge" style="border-color:var(--amber);color:var(--amber);">TARGET: CAPTAIN</div></div>
+        <div class="tl-item"><div class="tl-dot"></div><div class="tl-date">HORIZON</div><div class="tl-title">10,000 Hour Captain</div><div class="tl-desc">The five-digit mark. A career of excellence, safety, and sky mastery.</div><div class="tl-badge" style="border-color:var(--green);color:var(--green);">VISION</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FLASHCARDS TAB -->
+<div class="tab-content" id="tab-flashcards">
+  <div class="sec-hdr"><div class="sec-title">🃏 AVIATION KNOWLEDGE CARDS</div><div class="sec-badge">50 CARDS · A320 · ATPL · OPS</div></div>
+  <div class="fc-area">
+    <div class="fc-filters" id="fcFilters"></div>
+    <div class="fc-counter">CARD <span id="fcNum">1</span> / <span id="fcTotal">50</span> · <span id="fcCat" style="color:var(--amber)">ALL</span></div>
+    <div class="fc-wrap" onclick="flipCard()">
+      <div class="fc-inner" id="fcInner">
+        <div class="fc-face fc-front">
+          <div class="fc-tag ft" id="fcTagFront">QUESTION</div>
+          <div class="fc-q" id="fcQ">Loading...</div>
+          <div class="fc-hint">TAP TO REVEAL ANSWER</div>
+        </div>
+        <div class="fc-face fc-back">
+          <div class="fc-tag bt">ANSWER</div>
+          <div class="fc-a" id="fcA">...</div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-bottom:0.75rem;"><div class="progress-bar"><div class="progress-fill" id="fcProgress" style="width:0%"></div></div></div>
+    <div class="fc-controls">
+      <button class="btn" onclick="fcNav(-1)">◀ PREV</button>
+      <button class="btn btn-amber" onclick="shuffleFC()">⇄ SHUFFLE</button>
+      <button class="btn btn-green" onclick="markMastered()">✓ MASTERED</button>
+      <button class="btn" onclick="fcNav(1)">NEXT ▶</button>
+    </div>
+    <div class="fc-counter mt1" id="fcMastered" style="color:var(--green)">MASTERED: 0 cards</div>
+  </div>
+</div>
+
+<!-- QUIZ TAB -->
+<div class="tab-content" id="tab-quiz">
+  <div class="sec-hdr"><div class="sec-title">🎯 PROFICIENCY QUIZ</div><div class="sec-badge">100 QUESTIONS · ATPL · A320</div></div>
+  <div class="row" style="margin-bottom:0.75rem;align-items:center;">
+    <div style="flex:1;"><div class="fc-filters" id="quizFilters"></div></div>
+    <div style="font-family:var(--font-hud);font-size:0.65rem;color:var(--muted);text-align:right;">SCORE: <span id="qScore" style="color:var(--green)">0</span> / <span id="qTotal">0</span> · <span id="qPct" style="color:var(--cyan)">—</span></div>
+  </div>
+  <div class="score-bar-wrap"><div class="score-bar" id="qScoreBar"></div></div>
+  <div class="card" id="quizCard">
+    <div class="quiz-num">Q <span id="qNum">1</span> OF <span id="qMax">100</span> · <span id="qCatLabel" style="color:var(--amber)">ALL TOPICS</span></div>
+    <div class="quiz-q" id="qText">Loading...</div>
+    <div class="quiz-opts" id="qOpts"></div>
+    <div class="quiz-fb" id="qFb"></div>
+    <div style="display:flex;justify-content:flex-end;margin-top:1rem;">
+      <button class="btn" id="qNextBtn" onclick="nextQ()" style="display:none">NEXT QUESTION ▶</button>
+    </div>
+  </div>
+  <div class="card quiz-complete" id="quizComplete">
+    <div class="quiz-complete-score" id="qFinalScore">—</div>
+    <div style="font-family:var(--font-hud);font-size:0.7rem;color:var(--muted);letter-spacing:0.2em;margin-top:0.5rem;" id="qFinalMsg"></div>
+    <button class="btn btn-full mt2" onclick="resetQuiz()">RESTART QUIZ</button>
+  </div>
+</div>
+
+<!-- AIRPORTS TAB -->
+<div class="tab-content" id="tab-airports">
+  <div class="sec-hdr"><div class="sec-title">🗺️ OMA ROUTE NETWORK & AIRPORTS</div><div class="sec-badge">SalamAir DESTINATIONS</div></div>
+  <div class="airport-grid" id="airportGrid"></div>
+  <div class="apt-detail" id="aptDetail"></div>
+</div>
+
+<!-- REFERENCE TAB -->
+<div class="tab-content" id="tab-reference">
+  <div class="sec-hdr"><div class="sec-title">📡 QUICK REFERENCE DATA</div></div>
+  <div class="row">
+    <div class="card" style="flex:2;min-width:300px;">
+      <div class="sec-hdr"><div class="sec-title">🔤 ICAO PHONETIC ALPHABET</div></div>
+      <div class="phonetic-grid" id="phoneticGrid"></div>
+    </div>
+    <div class="card" style="flex:1;min-width:260px;">
+      <div class="sec-hdr"><div class="sec-title">📐 A320 KEY LIMITS</div></div>
+      <table class="hud-table">
+        <thead><tr><th>PARAMETER</th><th>LIMIT</th></tr></thead>
+        <tbody>
+          <tr><td>MTOW</td><td class="col-cyan">73,500 kg</td></tr>
+          <tr><td>MLW</td><td class="col-cyan">64,500 kg</td></tr>
+          <tr><td>MZFW</td><td class="col-cyan">61,000 kg</td></tr>
+          <tr><td>OEW (typical)</td><td class="col-amber">42,100 kg</td></tr>
+          <tr><td>Max Fuel</td><td class="col-green">18,728 kg</td></tr>
+          <tr><td>VMO</td><td class="col-amber">350 kt IAS</td></tr>
+          <tr><td>MMO</td><td class="col-amber">M0.82</td></tr>
+          <tr><td>VFE CONF 1</td><td class="col-cyan">230 kt</td></tr>
+          <tr><td>VFE CONF 2</td><td class="col-cyan">215 kt</td></tr>
+          <tr><td>VFE CONF 3</td><td class="col-cyan">200 kt</td></tr>
+          <tr><td>VFE FULL</td><td class="col-cyan">177 kt</td></tr>
+          <tr><td>VLO extend</td><td class="col-amber">250 kt</td></tr>
+          <tr><td>VLO retract</td><td class="col-amber">220 kt</td></tr>
+          <tr><td>VLE</td><td class="col-amber">280 kt</td></tr>
+          <tr><td>Max Crosswind</td><td class="col-green">29 kt (dry)</td></tr>
+          <tr><td>Service Ceiling</td><td class="col-cyan">FL390</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="row mt2">
+    <div class="card" style="flex:1;min-width:280px;">
+      <div class="sec-hdr"><div class="sec-title">📻 METAR DECODER</div></div>
+      <div class="form-group"><label>Paste METAR String</label><input type="text" id="metarInput" placeholder="OOMS 071200Z 26012KT 9999 FEW030 38/12 Q1012 NOSIG"></div>
+      <button class="btn btn-full" onclick="decodeMETAR()">DECODE</button>
+      <div class="result-box" id="metarResult"></div>
+    </div>
+    <div class="card" style="flex:1;min-width:260px;">
+      <div class="sec-hdr"><div class="sec-title">🔄 UNIT CONVERTER</div></div>
+      <div class="form-group"><label>Value</label><input type="number" id="ucVal" placeholder="Enter value"></div>
+      <div class="form-group"><label>Convert</label>
+        <select id="ucType">
+          <option value="kt-kmh">Knots → km/h</option><option value="kmh-kt">km/h → Knots</option>
+          <option value="ft-m">Feet → Metres</option><option value="m-ft">Metres → Feet</option>
+          <option value="nm-km">NM → km</option><option value="km-nm">km → NM</option>
+          <option value="kg-lbs">kg → lbs</option><option value="lbs-kg">lbs → kg</option>
+          <option value="c-f">°C → °F</option><option value="f-c">°F → °C</option>
+          <option value="hpa-inhg">hPa → inHg</option><option value="inhg-hpa">inHg → hPa</option>
+        </select>
+      </div>
+      <button class="btn btn-full" onclick="convertUnit()">CONVERT</button>
+      <div class="result-box" id="ucResult"></div>
+    </div>
+  </div>
+</div>
+</main>
+</div>
+<div id="toast"><span id="toastMsg"></span></div>
+<script>
+// STARFIELD
+(function(){
+  const c=document.getElementById('starCanvas');
+  const ctx=c.getContext('2d');
+  let stars=[];
+  function resize(){c.width=window.innerWidth;c.height=window.innerHeight;}
+  function init(){resize();stars=[];for(let i=0;i<200;i++)stars.push({x:Math.random()*c.width,y:Math.random()*c.height,r:Math.random()*1.2+0.3,a:Math.random(),s:Math.random()*0.3+0.1});}
+  function draw(){ctx.clearRect(0,0,c.width,c.height);stars.forEach(s=>{s.a+=s.s*0.01;if(s.a>1)s.a=0;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fillStyle=`rgba(180,220,255,${s.a})`;ctx.fill();});requestAnimationFrame(draw);}
+  window.addEventListener('resize',init);init();draw();
+})();
+
+// BOOT
+const bootMsgs=['INITIALISING AVIONICS...','LOADING NAV DATABASE...','RUNNING SELF-TEST...','CONNECTING TO FMS...','CALIBRATING INSTRUMENTS...','FLIGHT COMPANION READY ✈'];
+let bootPct=0,bIdx=0;
+const bootFill=document.getElementById('bootFill'),bootStatus=document.getElementById('bootStatus');
+const bi=setInterval(()=>{
+  bootPct+=Math.random()*18+6;if(bootPct>=100)bootPct=100;
+  bootFill.style.width=bootPct+'%';
+  bootStatus.textContent=bootMsgs[Math.min(bIdx++,bootMsgs.length-1)];
+  if(bootPct>=100){clearInterval(bi);setTimeout(()=>document.getElementById('boot').classList.add('hidden'),700);}
+},380);
+
+// UTC CLOCK
+function updateClock(){const n=new Date();const h=String(n.getUTCHours()).padStart(2,'0'),m=String(n.getUTCMinutes()).padStart(2,'0'),s=String(n.getUTCSeconds()).padStart(2,'0');document.getElementById('clockUTC').textContent=`${h}:${m}:${s}Z`;}
+setInterval(updateClock,1000);updateClock();
+
+// WORLD CLOCKS
+const zones=[{city:'MUSCAT',tz:'Asia/Muscat',code:'MCT'},{city:'DUBAI',tz:'Asia/Dubai',code:'DXB'},{city:'LONDON',tz:'Europe/London',code:'LHR'},{city:'KARACHI',tz:'Asia/Karachi',code:'KHI'}];
+function updateWorldClocks(){const n=new Date();const el=document.getElementById('worldClocks');el.innerHTML=zones.map(z=>{const t=new Intl.DateTimeFormat('en',{timeZone:z.tz,hour:'2-digit',minute:'2-digit',hour12:false}).format(n);return`<div class="card" style="text-align:center;padding:0.75rem;"><div style="font-family:var(--font-hud);font-size:1.1rem;color:var(--cyan)">${t}</div><div style="font-family:var(--font-mono);font-size:0.52rem;color:var(--amber);margin-top:0.2rem">${z.code}</div><div style="font-size:0.58rem;color:var(--muted)">${z.city}</div></div>`;}).join('');}
+setInterval(updateWorldClocks,15000);updateWorldClocks();
+
+// TAB NAVIGATION
+function showTab(tab){document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));document.getElementById('tab-'+tab).classList.add('active');document.querySelector(`[data-tab="${tab}"]`).classList.add('active');}
+
+// TOAST
+function toast(msg){const t=document.getElementById('toast');document.getElementById('toastMsg').textContent=msg;t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),2800);}
+
+// FUEL CALC
+function calcFuel(){
+  const dist=+document.getElementById('fuelDist').value||0;const pax=+document.getElementById('fuelPax').value||0;const cargo=+document.getElementById('fuelCargo').value||0;const wind=+document.getElementById('fuelWind').value||0;const altDist=+document.getElementById('fuelAlt').value||60;const fl=+document.getElementById('fuelFL').value||350;
+  const burn=fl>=390?2320:fl>=370?2400:fl>=350?2480:fl>=320?2560:2650;
+  const gs=440-wind;const time=dist/gs;const tripF=Math.round(time*burn);const altF=Math.round((altDist/440)*2600);const final=Math.round(30/60*2000);const cont=Math.round(tripF*0.05);const taxi=200;const total=tripF+altF+final+cont+taxi;
+  const st=total>18728?'fail':total>16000?'warn':'ok';
+  const el=document.getElementById('fuelResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">EST TRIP TIME</span><span class="result-val">${Math.floor(time)}h ${Math.round((time%1)*60)}m</span></div><div class="result-row"><span class="result-key">TRIP FUEL</span><span class="result-val">${tripF.toLocaleString()} kg</span></div><div class="result-row"><span class="result-key">CONTINGENCY 5%</span><span class="result-val">${cont} kg</span></div><div class="result-row"><span class="result-key">ALTERNATE FUEL</span><span class="result-val">${altF} kg</span></div><div class="result-row"><span class="result-key">FINAL RESERVE 30 MIN</span><span class="result-val">${final} kg</span></div><div class="result-row"><span class="result-key">TAXI ALLOWANCE</span><span class="result-val">${taxi} kg</span></div><div class="result-row"><span class="result-key">TOTAL REQUIRED</span><span class="result-val ${st}">${total.toLocaleString()} kg</span></div><div class="result-row"><span class="result-key">MAX FUEL CAPACITY</span><span class="result-val">18,728 kg</span></div><div class="result-row"><span class="result-key">STATUS</span><span class="result-val ${st}">${st==='ok'?'✅ WITHIN LIMITS':st==='warn'?'⚠️ HIGH FUEL LOAD':'❌ EXCEEDS MAX FUEL'}</span></div>`;
+  el.classList.add('show');toast('⛽ Fuel requirements calculated');
+}
+
+// DENSITY ALTITUDE
+function calcDA(){
+  const elev=+document.getElementById('daElev').value||0;const oat=+document.getElementById('daOAT').value||15;const qnh=+document.getElementById('daQNH').value||1013;
+  const pAlt=elev+((1013.25-qnh)*27.3);const isa=15-(elev/1000)*2;const dev=oat-isa;const dAlt=Math.round(pAlt+(120*dev));
+  const el=document.getElementById('daResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">PRESSURE ALTITUDE</span><span class="result-val">${Math.round(pAlt)} ft</span></div><div class="result-row"><span class="result-key">ISA TEMP AT ELEV</span><span class="result-val">${isa.toFixed(1)}°C</span></div><div class="result-row"><span class="result-key">ISA DEVIATION</span><span class="result-val ${dev>15?'warn':'ok'}">${dev>0?'+':''}${dev.toFixed(1)}°C</span></div><div class="result-row"><span class="result-key">DENSITY ALTITUDE</span><span class="result-val ${dAlt>3000?'warn':'ok'}">${dAlt.toLocaleString()} ft</span></div>`;
+  el.classList.add('show');toast('📊 Density altitude computed');
+}
+
+// CROSSWIND
+function calcCW(){
+  const rwy=(+document.getElementById('cwRwy').value||0)*Math.PI/180;const wdir=(+document.getElementById('cwWdir').value||0)*Math.PI/180;const spd=+document.getElementById('cwSpeed').value||0;
+  const ang=Math.abs(wdir-rwy);const xw=Math.abs(Math.round(spd*Math.sin(ang)));const hw=Math.round(spd*Math.cos(ang));
+  const st=xw>29?'fail':xw>20?'warn':'ok';
+  const el=document.getElementById('cwResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">CROSSWIND</span><span class="result-val ${st}">${xw} kt</span></div><div class="result-row"><span class="result-key">HEADWIND</span><span class="result-val ${hw>=0?'ok':'warn'}">${hw>=0?hw+' kt HW':Math.abs(hw)+' kt TW'}</span></div><div class="result-row"><span class="result-key">MAX XWIND DRY</span><span class="result-val">29 kt</span></div><div class="result-row"><span class="result-key">STATUS</span><span class="result-val ${st}">${st==='ok'?'✅ WITHIN LIMITS':st==='warn'?'⚠️ APPROACHING LIMIT':'❌ EXCEEDS LIMIT'}</span></div>`;
+  el.classList.add('show');
+}
+
+// WEIGHT & BALANCE
+function calcWB(){
+  const oew=+document.getElementById('wbOEW').value||42100;const fuel=+document.getElementById('wbFuel').value||0;const pax=+document.getElementById('wbPax').value||0;const cargo=+document.getElementById('wbCargo').value||0;
+  const zfw=oew+(pax*95)+cargo;const tow=zfw+fuel;const lw=tow-(fuel*0.85);
+  const zst=zfw>61000?'fail':'ok';const tst=tow>73500?'fail':tow>70000?'warn':'ok';
+  const el=document.getElementById('wbResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">ZERO FUEL WEIGHT</span><span class="result-val ${zst}">${zfw.toLocaleString()} kg ${zfw>61000?'❌ EXCEEDS MZFW':''}</span></div><div class="result-row"><span class="result-key">TAKE-OFF WEIGHT</span><span class="result-val ${tst}">${tow.toLocaleString()} kg</span></div><div class="result-row"><span class="result-key">EST LANDING WEIGHT</span><span class="result-val">${Math.round(lw).toLocaleString()} kg</span></div><div class="result-row"><span class="result-key">STATUS</span><span class="result-val ${tst}">${tst==='ok'?'✅ WITHIN LIMITS':tst==='warn'?'⚠️ HEAVY — CHECK PERF':'❌ EXCEEDS MTOW'}</span></div>`;
+  el.classList.add('show');drawWBEnvelope(tow,zfw);toast('⚖️ W&B computed');
+}
+function drawWBEnvelope(tow,zfw){
+  const cv=document.getElementById('wbCanvas');const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,cv.width,cv.height);ctx.fillStyle='rgba(5,15,40,0.95)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.beginPath();ctx.moveTo(55,175);ctx.lineTo(75,25);ctx.lineTo(245,25);ctx.lineTo(265,175);ctx.closePath();
+  ctx.strokeStyle='rgba(0,200,255,0.45)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='rgba(0,200,255,0.04)';ctx.fill();
+  const inE=tow<=73500&&zfw<=61000;
+  const px=55+(tow/73500)*(265-55);const py=175-(zfw/61000)*(175-25);
+  ctx.beginPath();ctx.arc(Math.min(Math.max(px,55),265),Math.min(Math.max(py,25),175),7,0,Math.PI*2);
+  ctx.fillStyle=inE?'rgba(0,255,157,0.9)':'rgba(255,59,92,0.9)';ctx.fill();
+  ctx.fillStyle='rgba(0,200,255,0.5)';ctx.font='10px Share Tech Mono';ctx.fillText('W&B ENVELOPE',80,16);
+  ctx.fillStyle=inE?'rgba(0,255,157,0.7)':'rgba(255,59,92,0.7)';ctx.font='10px Share Tech Mono';ctx.fillText(inE?'✓ IN ENVELOPE':'✗ OUT OF ENV',65,192);
+}
+function drawBlankWB(){
+  const cv=document.getElementById('wbCanvas');const ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(5,15,40,0.95)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.beginPath();ctx.moveTo(55,175);ctx.lineTo(75,25);ctx.lineTo(245,25);ctx.lineTo(265,175);ctx.closePath();
+  ctx.strokeStyle='rgba(0,200,255,0.35)';ctx.lineWidth=1;ctx.stroke();ctx.fillStyle='rgba(0,200,255,0.025)';ctx.fill();
+  ctx.fillStyle='rgba(0,200,255,0.4)';ctx.font='10px Share Tech Mono';ctx.fillText('W&B ENVELOPE',80,16);
+  ctx.fillStyle='rgba(180,220,255,0.2)';ctx.font='10px Share Tech Mono';ctx.fillText('Enter values to plot',75,105);
+}
+
+// V-SPEEDS
+function calcVSpeeds(){
+  const w=+document.getElementById('vsWeight').value||66000;const f=+document.getElementById('vsFlap').value||1;
+  const wr=Math.sqrt(w/66000);const base={1:{v1:143,vr:147,v2:152},2:{v1:135,vr:139,v2:144},3:{v1:128,vr:132,v2:137}};
+  const b=base[f];const v1=Math.round(b.v1*wr),vr=Math.round(b.vr*wr),v2=Math.round(b.v2*wr);
+  const vapp=Math.round(137*wr),vls=Math.round(128*wr);
+  const el=document.getElementById('vsResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">V1 — Decision Speed</span><span class="result-val">${v1} kt</span></div><div class="result-row"><span class="result-key">VR — Rotation</span><span class="result-val">${vr} kt</span></div><div class="result-row"><span class="result-key">V2 — Takeoff Safety</span><span class="result-val">${v2} kt</span></div><div class="result-row"><span class="result-key">VLS — Lowest Selectable</span><span class="result-val">${vls} kt</span></div><div class="result-row"><span class="result-key">VAPP — Approach</span><span class="result-val">${vapp} kt</span></div><div class="result-row" style="border:none"><span style="color:var(--amber);font-size:0.6rem">⚠️ Reference only — use actual FCOM/QRH for operations</span></div>`;
+  el.classList.add('show');toast('💨 V-speeds computed');
+}
+
+// LOGBOOK
+function updateLogbook(){
+  const d={total:+document.getElementById('lbTotal').value||0,a320:+document.getElementById('lbA320').value||0,pic:+document.getElementById('lbPIC').value||0,night:+document.getElementById('lbNight').value||0,ifr:+document.getElementById('lbIFR').value||0,sectors:+document.getElementById('lbSectors').value||0,countries:+document.getElementById('lbCountries').value||0,years:+document.getElementById('lbYears').value||0};
+  const el=parseFloat((d.sectors*600/21600).toFixed(1));
+  document.getElementById('lbKpiTotal').textContent=d.total.toLocaleString();document.getElementById('lbKpiPIC').textContent=d.pic.toLocaleString();document.getElementById('lbKpiSectors').textContent=d.sectors.toLocaleString();document.getElementById('lbKpiEarth').textContent=el;
+  document.getElementById('homeHours').textContent=d.total.toLocaleString();document.getElementById('homeSectors').textContent=d.sectors.toLocaleString();
+  const bars=[{l:'TOTAL',v:d.total,m:15000},{l:'A320',v:d.a320,m:15000},{l:'PIC',v:d.pic,m:15000},{l:'NIGHT',v:d.night,m:5000},{l:'IFR',v:d.ifr,m:15000}];
+  document.getElementById('lbBarChart').innerHTML=bars.map(b=>{const p=Math.min((b.v/b.m)*100,100);return`<div class="bar-col"><div class="bar-val">${b.v>0?b.v.toLocaleString():'-'}</div><div class="bar-fill" style="height:${p}%"></div><div class="bar-label">${b.l}</div></div>`;}).join('');
+  const km=d.sectors*800;const moon=(km/384400).toFixed(1);const coffees=Math.round(d.total*2);
+  document.getElementById('funStats').innerHTML=`<div>🌍 Approx distance flown: <span style="color:var(--cyan)">${km.toLocaleString()} km</span></div><div>🌕 Moon distance equivalent: <span style="color:var(--amber)">${moon}×</span></div><div>🌐 Earth circumference laps: <span style="color:var(--green)">${el}×</span></div><div>☕ Estimated coffees consumed: <span style="color:var(--amber)">${coffees.toLocaleString()}</span></div><div>🌏 Countries visited: <span style="color:var(--cyan)">${d.countries}</span></div><div>⏱️ Years of aviation: <span style="color:var(--green)">${d.years}</span></div><div>✈️ Avg sector: <span style="color:var(--cyan)">${d.sectors>0?(d.total/d.sectors).toFixed(1):'-'} hrs</span></div>`;
+  toast('📘 Logbook updated! ✈️');
+}
+
+// FLASHCARD DATA
+const fcData=[
+  {cat:'A320 SYSTEMS',q:'What is the normal hydraulic pressure on all three A320 systems?',a:'3000 PSI on Green (Eng 1 driven), Blue (electric pump) and Yellow (Eng 2 + electric pump). All independent with cross-feed capability via PTU.'},
+  {cat:'A320 SYSTEMS',q:'What does ECAM stand for and what are the two screen types?',a:'Electronic Centralised Aircraft Monitor. E/WD (Engine/Warning Display) — upper: engine parameters and warnings. SD (System Display) — lower: systems synoptic pages.'},
+  {cat:'A320 SYSTEMS',q:'Name the A320 fly-by-wire control computers.',a:'2×ELAC (Elevator & Aileron), 3×SEC (Spoiler & Elevator), 2×FAC (Flight Augmentation). ELACs primary; SECs backup. FACs provide yaw damping, speed refs, windshear detection.'},
+  {cat:'A320 SYSTEMS',q:'What protections does Normal Law provide?',a:'Load factor (−1g to +2.5g), pitch attitude (−15°/+30°), bank angle protection (67° max → 33° when stick released), alpha floor (TOGA auto), high speed protection, stall prevention.'},
+  {cat:'A320 SYSTEMS',q:'What is the purpose of the FAC?',a:'Flight Augmentation Computer: computes rudder travel limits, yaw damping, turn coordination, windshear detection, speed references (VLS, VAPP, VFE, alpha floor).'},
+  {cat:'A320 SYSTEMS',q:'What does alpha floor do?',a:'Activates when AOA approaches stall threshold. Automatically commands TOGA thrust regardless of thrust lever position to prevent stall. Part of Normal Law protections.'},
+  {cat:'A320 SYSTEMS',q:'What is the maximum APU bleed air altitude?',a:'FL200. Above FL200 the APU can supply electrical power only — no bleed air available for air conditioning or engine start above 20,000 ft.'},
+  {cat:'A320 SYSTEMS',q:'What does the PTU do on the A320?',a:'Power Transfer Unit: transfers hydraulic power between Green and Yellow systems in both directions when pressure differential exists — without transferring fluid. Activated automatically.'},
+  {cat:'A320 SYSTEMS',q:'Explain direct law on the A320.',a:'All envelope protections LOST. Sidestick directly commands surface deflection proportionally. Pilot fully responsible for stall, overspeed, attitude — no automatic protection. Entered after multiple computer failures.'},
+  {cat:'A320 SYSTEMS',q:'What is the function of the autothrust system?',a:'Controls engine thrust automatically. Speed mode: maintains target speed. Thrust mode (takeoff/GA): fixed thrust. Levers stay in detents (IDLE, CL, MCT, TOGA). A/THR controls within detent limits.'},
+  {cat:'METEOROLOGY',q:'Define wind shear and its two main categories.',a:'Change in wind speed/direction over a short distance. Horizontal: variation over lateral distance. Vertical: change with altitude — most hazardous during approach/takeoff (low-level windshear).'},
+  {cat:'METEOROLOGY',q:'What does QNH, QFE and QNE mean?',a:'QNH: altimeter setting for MSL altitude. QFE: setting for height above aerodrome. QNE: standard 1013.25 hPa — gives pressure altitude used above transition level.'},
+  {cat:'METEOROLOGY',q:'What is ISA at sea level?',a:'Temperature 15°C, pressure 1013.25 hPa, density 1.225 kg/m³. Lapse rate 2°C per 1000 ft to tropopause (~36,000 ft). Isothermal above tropopause at −56.5°C.'},
+  {cat:'METEOROLOGY',q:'Describe the difference between rime and clear ice.',a:'Rime: small droplets freeze on impact → milky, brittle, builds forward on leading edge. Clear/glaze: large droplets flow before freezing → heavy, transparent, aerodynamically very damaging.'},
+  {cat:'METEOROLOGY',q:'What is a microburst?',a:'Intense localised downdraft that spreads outward on ground contact. Creates rapid headwind gain then sudden tailwind loss on approach — severe low-level windshear. Associated with CBs and virga.'},
+  {cat:'METEOROLOGY',q:'What is orographic lift relevant to Gulf/Oman operations?',a:'Air forced over Hajar mountains rises, cools, clouds form (windward). Lee side: dry warm foehn descent. Significant turbulence and orographic cloud on Oman routes near Al Hajar range.'},
+  {cat:'AIR LAW',q:'What squall codes are used for emergency, radio failure, and hijack?',a:'7700 Emergency. 7600 Radio failure (loss of comms). 7500 Unlawful interference (hijack). Memory: 77-going to heaven, 76-radio fix, 75-taken alive.'},
+  {cat:'AIR LAW',q:'What is RVSM and what is the vertical separation it enables?',a:'Reduced Vertical Separation Minima. Reduces separation from 2000 ft to 1000 ft between FL290–FL410. Aircraft must be RVSM approved/certified for operations in this airspace.'},
+  {cat:'AIR LAW',q:'What is minimum fuel vs emergency fuel?',a:'Minimum fuel: cannot accept delay, below planned reserve — not an emergency, inform ATC. Emergency fuel (MAYDAY FUEL): fuel state requires priority landing — declare MAYDAY, immediate action required.'},
+  {cat:'AIR LAW',q:'What are the GCAA/EASA FTL limits for airline pilots?',a:'Max 900 hrs/year, 100 hrs/28 days. Minimum rest 10 hrs including 8 hrs sleep opportunity. FDP limits depend on reporting time and number of sectors per EASA ORO.FTL.'},
+  {cat:'NAVIGATION',q:'What is the 1-in-60 rule?',a:'1° track error = 1 NM off-track per 60 NM flown. Used for mental calculation: track error angle = (distance off × 60) ÷ distance flown. Add closing angle for return-to-track.'},
+  {cat:'NAVIGATION',q:'How does GPS calculate 3D position?',a:'Measures time for signals from minimum 4 satellites. Using known satellite positions and signal travel time → trilateration gives latitude, longitude, altitude. RAIM monitors integrity.'},
+  {cat:'NAVIGATION',q:'What is ILS and how does it provide approach guidance?',a:'Instrument Landing System. Localiser: lateral guidance ±2.5° from centreline. Glideslope: vertical path typically 3°. Categories I/II/III based on DH/RVR minimums.'},
+  {cat:'NAVIGATION',q:'What is the difference between a SID and a STAR?',a:'SID (Standard Instrument Departure): coded procedure from runway to en-route airway. STAR (Standard Terminal Arrival Route): coded procedure from en-route to IAF. Both reduce ATC/crew workload.'},
+  {cat:'NAVIGATION',q:'What is TCAS II and the correct RA response?',a:'Traffic Collision Avoidance System. Provides TAs (awareness, 35-45s) and RAs (vertical commands, 15-35s). Follow RA immediately regardless of ATC — do not manoeuvre against RA. Inform ATC: "TCAS RA".'},
+  {cat:'PERFORMANCE',q:'What increases takeoff distance required?',a:'High temperature/altitude (density altitude), high TOW, tailwind, uphill slope, contaminated runway, non-standard flap, tire pressure issues, inoperative anti-skid.'},
+  {cat:'PERFORMANCE',q:'What factors increase landing distance?',a:'High landing weight, high density altitude, tailwind, wet/contaminated runway, high approach speed, anti-skid failure, no reverse thrust, steep downhill slope.'},
+  {cat:'PERFORMANCE',q:'What is flex temperature takeoff?',a:'Assumed temperature higher than actual entered in FMGS — commands reduced (derated) thrust. Reduces engine wear and fuel burn when runway/obstacle performance allows. Max flex = ISA+53°C or MTOW limit.'},
+  {cat:'PERFORMANCE',q:'What is the green dot speed on A320?',a:'Best L/D (lift-to-drag) speed in clean configuration. Approximately 210–250 kt depending on weight. Used for single-engine procedures, extended configuration holds, and engine-out climb.'},
+  {cat:'PERFORMANCE',q:'Define TODA, TORA, ASDA, LDA.',a:'TORA: Take-Off Run Available. TODA: TORA + clearway. ASDA: TORA + stopway (accelerate-stop). LDA: Landing Distance Available. Published per runway in AIP/charts.'},
+  {cat:'CRM & SOP',q:'What are the five EASA CRM skill areas?',a:'1. Communication 2. Situational Awareness 3. Problem Solving & Decision Making 4. Leadership & Teamwork 5. Workload Management. Plus stress and fatigue management.'},
+  {cat:'CRM & SOP',q:'What is the sterile cockpit rule?',a:'Below 10,000 ft: no non-essential communication. Only flight-critical calls permitted during critical phases — taxi, takeoff, initial climb, final approach, landing.'},
+  {cat:'CRM & SOP',q:'What is TEM (Threat and Error Management)?',a:'Proactive safety model: identify threats (external), manage errors (crew mistakes), trap undesired aircraft states. Applied in pre-flight briefing, during flight, and post-flight review.'},
+  {cat:'CRM & SOP',q:'Define a stabilised approach.',a:'By 1000 ft AAL (IMC) / 500 ft (VMC): on correct path, target speed ±10 kt, correct config, stable power, sink rate <1000 fpm, no EGPWS warnings. GO-AROUND if not stabilised.'},
+  {cat:'CRM & SOP',q:'What is the Aviate-Navigate-Communicate priority?',a:'First: fly the aircraft always. Second: navigate (maintain track/altitude). Third: communicate with ATC. In emergencies, many accidents occur when crew stop flying to manage the emergency.'},
+  {cat:'CRM & SOP',q:'What is confirmation bias?',a:'Tendency to seek information confirming existing beliefs and disregard contradictory data. Dangerous in cockpit — leads to fixation, ignoring warnings, misinterpreting weather or system states.'},
+  {cat:'EMERGENCY',q:'What memory items are executed for engine fire at or after V1?',a:'Continue takeoff — V1 passed, cannot stop. Rotate VR, maintain V2, positive rate → gear up. Engine fire drill per ECAM when workload allows. Declare MAYDAY, coordinate with cabin crew.'},
+  {cat:'EMERGENCY',q:'What is CFIT and how is it prevented?',a:'Controlled Flight Into Terrain — intact aircraft flown into terrain under crew control. Primary prevention: EGPWS/TAWS forward-looking terrain warnings, sterile cockpit, stabilised approach SOPs.'},
+  {cat:'EMERGENCY',q:'What is the A320 emergency descent procedure?',a:'Immediately don O2 mask. Autopilot ON. Request lower level (FL100/MEA). Set max descent rate, speed VMO/MMO. ECAM pressurisation actions. Squawk 7700. Advise ATC and passengers.'},
+  {cat:'EMERGENCY',q:'What is the correct response to EGPWS "PULL UP"?',a:'Immediate maximum thrust. Rotate to max pitch attitude (~20°). Retract gear. Trust instruments — do not look outside. Follow escape manoeuvre guidance. Do not delay.'},
+  {cat:'EMERGENCY',q:'What is LOC-I and why is it the leading fatal accident cause?',a:'Loss of Control In Flight — uncontrolled deviation from flightpath. Leading fatal category because: rapid onset, crew may not recognize, requires immediate upset recovery skills not reinforced in normal ops. UPRT now mandatory.'},
+  {cat:'A320 SYSTEMS',q:'What is the function of spoilerons on the A320?',a:'Spoilers deployed asymmetrically to assist ailerons in roll control. At high speeds where outer ailerons locked out, spoilerons provide primary roll authority. Managed by ELAC/SEC computers.'},
+  {cat:'METEOROLOGY',q:'What is a TAF and how long does it cover?',a:'Terminal Aerodrome Forecast. Covers 24-30 hours for major aerodromes, 9 hours for smaller fields. Issued every 3 or 6 hours. Contains wind, visibility, weather, cloud, and significant change groups.'},
+  {cat:'AIR LAW',q:'What does the AIP contain?',a:'Aeronautical Information Publication — official state document. GEN: general info. ENR: en-route airspace, procedures, navaids. AD: aerodrome data, approach charts, frequencies. Legal regulatory document.'},
+  {cat:'NAVIGATION',q:'What is RNAV/RNP and what is required for Oman FIR?',a:'Area Navigation: fly any path using GPS/FMC without overflying ground stations. RNP: required navigation performance — specifies accuracy. Oman FIR (OOMM) requires RNP4 oceanic, RNP1 terminal.'},
+  {cat:'PERFORMANCE',q:'Why does TAS increase with altitude for same IAS?',a:'Air density decreases with altitude. For same IAS (same dynamic pressure at pitot), aircraft must travel faster through thinner air. At FL350: TAS ≈ IAS × ~1.65. Critical for fuel and navigation planning.'},
+  {cat:'PERFORMANCE',q:'What is cost index (CI) and how does it affect cruise?',a:'Ratio of time cost to fuel cost. CI=0: minimum fuel, slowest cruise (max range speed). CI=999: minimum time, fastest cruise. Airlines set CI based on operational economics and fuel price.'},
+  {cat:'CRM & SOP',q:'What is a shared mental model?',a:'Both crew members have identical understanding of situation, aircraft state, threats, and plan. Achieved through briefings, cross-checks, verbalising intentions and proactive callouts.'},
+  {cat:'EMERGENCY',q:'What are the immediate actions for dual engine failure in cruise?',a:'Best glide speed (Green Dot). ECAM engine relight procedure. RAT deploys automatically (Blue hydraulics). Squawk 7700. Declare MAYDAY. Identify nearest suitable aerodrome. Brief crew and passengers.'},
+  {cat:'A320 SYSTEMS',q:'Describe the A320 bleed air system.',a:'Engine bleed air (from compressor stages) supplies: 2 air conditioning packs, wing anti-ice, engine anti-ice, hydraulic reservoir pressurisation, potable water pressurisation. APU bleed used on ground or up to FL200.'},
+];
+
+let filteredFC=[...fcData];let fcIdx=0;let masteredSet=new Set();
+const fcCats=[...new Set(fcData.map(c=>c.cat))];
+function buildFCFilters(){
+  document.getElementById('fcFilters').innerHTML=['ALL',...fcCats].map((c,i)=>`<button class="fc-filter${i===0?' active':''}" onclick="filterFC('${c}',this)">${c}</button>`).join('');
+}
+function filterFC(cat,el){
+  document.querySelectorAll('.fc-filter').forEach(f=>f.classList.remove('active'));el.classList.add('active');
+  filteredFC=cat==='ALL'?[...fcData]:fcData.filter(c=>c.cat===cat);fcIdx=0;updateFC();
+  toast(`📋 ${filteredFC.length} cards — ${cat}`);
+}
+function updateFC(){
+  if(!filteredFC.length)return;const c=filteredFC[fcIdx];
+  document.getElementById('fcQ').textContent=c.q;document.getElementById('fcA').textContent=c.a;
+  document.getElementById('fcTagFront').textContent=c.cat;document.getElementById('fcNum').textContent=fcIdx+1;
+  document.getElementById('fcTotal').textContent=filteredFC.length;document.getElementById('fcCat').textContent=c.cat;
+  document.getElementById('fcProgress').style.width=((fcIdx+1)/filteredFC.length*100)+'%';
+  document.getElementById('fcInner').classList.remove('flipped');
+  document.getElementById('fcMastered').textContent=`MASTERED: ${masteredSet.size} cards`;
+  document.getElementById('homeFc').textContent=`${masteredSet.size}/50`;
+}
+function flipCard(){document.getElementById('fcInner').classList.toggle('flipped');}
+function fcNav(d){fcIdx=(fcIdx+d+filteredFC.length)%filteredFC.length;updateFC();}
+function shuffleFC(){for(let i=filteredFC.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[filteredFC[i],filteredFC[j]]=[filteredFC[j],filteredFC[i]];}fcIdx=0;updateFC();toast('🔀 Cards shuffled!');}
+function markMastered(){masteredSet.add(filteredFC[fcIdx].q);toast('✅ Marked as mastered!');document.getElementById('fcMastered').textContent=`MASTERED: ${masteredSet.size} cards`;document.getElementById('homeFc').textContent=`${masteredSet.size}/50`;}
+
+// QUIZ DATA
+const quizData=[
+  {cat:'A320 SYSTEMS',q:'What is the normal hydraulic system pressure?',opts:['2000 PSI','3000 PSI','4000 PSI','5000 PSI'],a:1,e:'All three A320 hydraulic systems (Green, Blue, Yellow) operate at 3000 PSI nominal.'},
+  {cat:'A320 SYSTEMS',q:'Which hydraulic system does the RAT power?',opts:['Green','Blue','Yellow','All three'],a:1,e:'RAT powers the Blue hydraulic system for flight controls in emergency (dual engine failure).'},
+  {cat:'A320 SYSTEMS',q:'A320 MZFW is:',opts:['61,000 kg','64,500 kg','68,000 kg','73,500 kg'],a:0,e:'MZFW is 61,000 kg — maximum weight excluding usable fuel.'},
+  {cat:'A320 SYSTEMS',q:'In direct law, which protections are lost?',opts:['Speed only','All envelope protections lost','Bank angle only','Alpha floor only'],a:1,e:'Direct law: ALL envelope protections are lost. Sidestick commands direct surface deflection. Stall and overspeed fully possible.'},
+  {cat:'A320 SYSTEMS',q:'At what altitude is APU bleed air no longer available?',opts:['FL100','FL150','FL200','FL250'],a:2,e:'APU bleed limited to FL200. Electrical power from APU available at higher altitudes.'},
+  {cat:'A320 SYSTEMS',q:'What activates alpha floor protection?',opts:['At stall warning only','When AOA exceeds threshold → TOGA thrust auto-commanded','At VMO','At idle thrust'],a:1,e:'Alpha floor activates when AOA approaches stall. Automatically commands TOGA thrust to prevent stall regardless of thrust lever position.'},
+  {cat:'A320 SYSTEMS',q:'What does the PTU do?',opts:['Transfers fluid between systems','Transfers hydraulic power (not fluid) between Green and Yellow','Charges the batteries','Controls the RAT'],a:1,e:'PTU transfers hydraulic power without fluid transfer between Green and Yellow systems. Activates automatically on differential pressure.'},
+  {cat:'A320 SYSTEMS',q:'Maximum bank angle in Normal Law with stick released:',opts:['15°','33°','45°','67°'],a:1,e:'When sidestick released in normal law, aircraft auto-returns to 33° bank. Maximum with input is 67°.'},
+  {cat:'METEOROLOGY',q:'What is a microburst?',opts:['Slow widespread downdraft','Intense localised downdraft spreading outward — creates severe low-level windshear','Light wind shift','High altitude turbulence'],a:1,e:'Microburst: intense downdraft hitting ground and spreading outward. Creates headwind gain then sudden tailwind — severe windshear on approach.'},
+  {cat:'METEOROLOGY',q:'ISA sea level temperature is:',opts:['0°C','10°C','15°C','20°C'],a:2,e:'ISA sea level: 15°C, 1013.25 hPa. Lapse rate 2°C per 1000 ft to tropopause.'},
+  {cat:'METEOROLOGY',q:'Which cloud type is associated with most severe turbulence?',opts:['Cirrus','Stratus','Cumulonimbus','Alto-cumulus'],a:2,e:'CB contains extreme turbulence, severe icing, lightning, hail, rapid altitude changes. Mandatory avoidance.'},
+  {cat:'METEOROLOGY',q:'Dew point spread of 2°C indicates:',opts:['Good VMC conditions','High risk of fog/mist/low cloud','Thunderstorm risk','Strong winds'],a:1,e:'OAT-DP spread <3°C indicates air near saturation — high fog, mist or low stratus risk.'},
+  {cat:'METEOROLOGY',q:'What is a SIGMET issued for?',opts:['Moderate turbulence only','Severe met phenomena affecting all aircraft: severe turbulence, icing, volcanic ash, tropical cyclone, CB areas','Fog only','Light icing'],a:1,e:'SIGMET covers severe/extreme met conditions. Mandatory awareness. Different from AIRMET (advisory for lighter aircraft).'},
+  {cat:'METEOROLOGY',q:'ISA lapse rate from SL to tropopause:',opts:['1°C per 1000 ft','2°C per 1000 ft','3°C per 1000 ft','4°C per 1000 ft'],a:1,e:'Standard lapse rate is 2°C per 1000 ft (6.5°C per 1000m) from SL to ~36,000 ft tropopause.'},
+  {cat:'METEOROLOGY',q:'Which ice type is most aerodynamically damaging?',opts:['Rime ice','Clear/glaze ice','Snow','Frost'],a:1,e:'Clear ice: large droplets flow before freezing → heavy, smooth, conforms to surface shape, very difficult to remove, severe aerodynamic penalty.'},
+  {cat:'AIR LAW',q:'Emergency squawk code:',opts:['7500','7600','7700','7000'],a:2,e:'7700 = Emergency. 7600 = Radio failure. 7500 = Unlawful interference (hijack).'},
+  {cat:'AIR LAW',q:'RVSM vertical separation is:',opts:['2000 ft above FL290','1000 ft between FL290-FL410','500 ft','1500 ft'],a:1,e:'RVSM reduces vertical separation from 2000 ft to 1000 ft between FL290 and FL410. Requires RVSM approval.'},
+  {cat:'AIR LAW',q:'Which ICAO Annex covers Rules of the Air?',opts:['Annex 1','Annex 2','Annex 6','Annex 11'],a:1,e:'ICAO Annex 2 = Rules of the Air. Annex 1 = Personnel Licensing. Annex 6 = Operation of Aircraft. Annex 11 = ATS.'},
+  {cat:'AIR LAW',q:'Minimum fuel declaration means:',opts:['Declare MAYDAY immediately','Cannot accept delay — inform ATC, not an emergency yet','Land at nearest airport','Squawk 7700'],a:1,e:'Minimum fuel: advise ATC, cannot accept delay. Not an emergency. If will not have required reserve on arrival → MAYDAY FUEL.'},
+  {cat:'AIR LAW',q:'EASA minimum rest before FDP:',opts:['6 hours','8 hours','10 hours','12 hours'],a:2,e:'Minimum 10 hours rest (including 8 hours sleep opportunity) before flight duty period per EASA ORO.FTL.'},
+  {cat:'AIR LAW',q:'Recency requirement for passenger operations (EASA):',opts:['1 landing in 30 days','3 T/O and landings in 90 days','5 sectors per month','Annual check only'],a:1,e:'3 take-offs and 3 landings in preceding 90 days. Night recency: 1 night T/O and landing in 90 days for night pax ops.'},
+  {cat:'AIR LAW',q:'A conditional ATC clearance must be:',opts:['Actioned immediately','Actioned only when the stated condition is confirmed met','Refused by pilots','Repeated to ATC'],a:1,e:'Conditional clearance only valid when condition met (e.g. "after landing aircraft"). Must positively identify traffic before acting.'},
+  {cat:'AIR LAW',q:'Aerodrome definition per ICAO:',opts:['Paved runways only','Any defined area used for arrival, departure and movement of aircraft','International airports only','Military fields only'],a:1,e:'Aerodrome: any defined area (land or water) used or intended for arrival, departure and surface movement of aircraft.'},
+  {cat:'NAVIGATION',q:'The 1-in-60 rule states:',opts:['Descend 1 ft per 60 NM','1° error = 1 NM off-track per 60 NM flown','Fuel burn 1 kg per 60 NM','Climb 60 ft per NM'],a:1,e:'1° heading error produces 1 NM off-track deviation per 60 NM flown. Used for quick mental navigation calculations.'},
+  {cat:'NAVIGATION',q:'GPS requires minimum how many satellites for 3D fix?',opts:['2','3','4','6'],a:2,e:'Minimum 4 satellites for 3D position (latitude, longitude, altitude). RAIM requires additional satellites for integrity monitoring.'},
+  {cat:'NAVIGATION',q:'ILS localiser provides:',opts:['Vertical guidance only','Lateral guidance ±2.5° from runway centreline','Distance information','Weather data'],a:1,e:'Localiser provides lateral guidance. Glideslope provides vertical path (typically 3°). Combined: precision approach guidance.'},
+  {cat:'NAVIGATION',q:'What is MORA?',opts:['Maximum Operating Range Altitude','Minimum Off-Route Altitude — 1000 ft obstacle clearance within 10 NM of route','Mandatory On Route Altitude','Minimum Outbound Radial Altitude'],a:1,e:'MORA: Minimum Off-Route Altitude. Provides 1000 ft (2000 ft mountainous) obstacle clearance within 10 NM of route centreline.'},
+  {cat:'NAVIGATION',q:'The correct response to a TCAS RA is:',opts:['Wait for ATC instruction','Follow RA immediately, inform ATC "TCAS RA"','Ignore if ATC has given different instruction','Descend always'],a:1,e:'Follow RA immediately — always. Do not wait for ATC. Do not manoeuvre opposite to RA. Inform ATC "TCAS RA". Return to clearance when RA ceases.'},
+  {cat:'NAVIGATION',q:'SID and STAR respectively are:',opts:['Standard Instrument Departure / Standard Terminal Arrival Route','Speed Information Display / Special Terminal Approach Route','Standard IFR Departure / Straight-in Terminal Approach','None of the above'],a:0,e:'SID: coded departure procedure to en-route. STAR: coded arrival from en-route to IAF. Both reduce crew/ATC workload and standardise procedures.'},
+  {cat:'NAVIGATION',q:'RNAV differs from conventional navigation because:',opts:['It uses VORs only','Aircraft can navigate any path without overflying ground stations','It requires GPS only','It is only for oceanic flight'],a:1,e:'RNAV: Area Navigation — FMC/GPS allows any desired track without ground station overflight. More flexible, efficient routeing. Basis for modern airspace design.'},
+  {cat:'PERFORMANCE',q:'High OAT affects A320 performance by:',opts:['Improving engine performance','Reducing air density → lower thrust, lower lift, longer takeoff run','Improving lift','No effect on jets'],a:1,e:'High OAT reduces air density → less engine thrust, less aerodynamic lift, higher V-speeds, longer takeoff/landing distances.'},
+  {cat:'PERFORMANCE',q:'Balanced field length means:',opts:['Equal runway on both sides','ASDA = TODA at certification TOW — stopping and continuing distances equal','Level runway','Runway balanced for weight'],a:1,e:'Balanced field: weight where ASDA (accelerate-stop) equals TODA (accelerate-go). Optimises field length utilisation at V1.'},
+  {cat:'PERFORMANCE',q:'What is flex/derated takeoff?',opts:['Maximum thrust always','Reduced thrust using assumed higher temperature — reduces engine wear when performance allows','Emergency thrust setting','Rejected takeoff thrust'],a:1,e:'Flex takeoff: FMGS assumes higher temperature → lower (derated) thrust. Reduces engine life consumption. Max flex = ISA+53°C or MTOW performance limit, whichever limits first.'},
+  {cat:'PERFORMANCE',q:'TAS increases with altitude because:',opts:['Wind increases','Air density decreases — same IAS requires faster motion through less dense air','Temperature decreases','Gravity reduces'],a:1,e:'Lower air density at altitude means aircraft must move faster through air to generate same dynamic pressure (same IAS). TAS = IAS × √(sea level density / actual density).'},
+  {cat:'PERFORMANCE',q:'TODA means:',opts:['Total Distance Available','Take-Off Distance Available = TORA + clearway','Take-Off Departure Allowance','Touchdown Area Dimension'],a:1,e:'TODA: Take-Off Distance Available = TORA (Take-Off Run Available) + clearway length. ASDA = TORA + stopway.'},
+  {cat:'PERFORMANCE',q:'Cost index CI=0 produces:',opts:['Fastest cruise','Minimum fuel / maximum range cruise speed','No effect on speed','Maximum thrust'],a:1,e:'CI=0: time cost irrelevant → fly at minimum fuel burn speed (max range speed). CI=999: fly fastest. Airlines select CI based on economics.'},
+  {cat:'PERFORMANCE',q:'Wet runway increases landing distance by approximately:',opts:['5%','10%','15%','30%'],a:2,e:'Wet runway: approximately +15% landing distance versus dry. Contaminated (ice/slush) can be +30-100%+. Use correct VAPP additive.'},
+  {cat:'CRM & SOP',q:'Sterile cockpit applies below:',opts:['18,000 ft','10,000 ft','5,000 ft','FL100'],a:1,e:'Sterile cockpit: no non-essential communication below 10,000 ft. Critical phases: taxi, takeoff, initial climb, final approach, landing.'},
+  {cat:'CRM & SOP',q:'First priority in emergency (Aviate-Navigate-Communicate):',opts:['Communicate with ATC','Navigate','Aviate — fly the aircraft always','Read checklist'],a:2,e:'Aviate first — always maintain aircraft control. Many accidents occur when crew stop flying to manage emergency. Navigate second. Communicate third.'},
+  {cat:'CRM & SOP',q:'TEM stands for:',opts:['Total Engine Management','Threat and Error Management','Terrain Evaluation Method','Traffic Evaluation Method'],a:1,e:'TEM: proactive safety framework — identify threats (external), manage errors (crew mistakes), prevent undesired aircraft states. Used in pre-flight briefing.'},
+  {cat:'CRM & SOP',q:'A stabilised approach by 1000 ft AAL (IMC) requires:',opts:['Any configuration','Speed ±10 kt, correct path, correct config, <1000 fpm descent, no GPWS warnings','Speed only requirement','Visual contact'],a:1,e:'Stabilised approach criteria must be met by 1000 ft AAL (IMC) / 500 ft (VMC). If not met → mandatory go-around.'},
+  {cat:'CRM & SOP',q:'Confirmation bias is:',opts:['Verifying checklist items','Seeking information that confirms existing beliefs, ignoring contradictory data','Computer bias check','Navigation confirmation'],a:1,e:'Confirmation bias: humans subconsciously seek confirming information. In aviation leads to misinterpreting warnings, fixating on wrong diagnosis, ignoring clear evidence.'},
+  {cat:'EMERGENCY',q:'Correct response to EGPWS PULL UP warning:',opts:['Check terrain chart first','Immediately max thrust, max pitch attitude, retract gear — no hesitation','Descend away from terrain','Ask ATC for help'],a:1,e:'PULL UP: immediate action — max thrust, rotate to max pitch (~20°), gear up, trust instruments. Do not look outside. No hesitation — every second counts.'},
+  {cat:'EMERGENCY',q:'MAYDAY vs PAN-PAN:',opts:['Same thing','MAYDAY: grave immediate danger. PAN-PAN: urgent, less immediate. Both use 121.5 MHz if normal freq unavailable','PAN-PAN is more serious','Only MAYDAY is recognised'],a:1,e:'MAYDAY (×3): grave and imminent danger requiring immediate assistance. PAN-PAN (×3): urgent situation, safety not immediately threatened. Both require priority from ATC.'},
+  {cat:'EMERGENCY',q:'What is CFIT?',opts:['Cold Front Impact Temperature','Controlled Flight Into Terrain — intact aircraft flown into ground under crew control','Circuit Flying Instrument Technique','Cabin Fire Immediate Threat'],a:1,e:'CFIT: controlled, airworthy aircraft flown into terrain. Primary prevention: EGPWS/TAWS, stabilised approach SOPs, terrain awareness, sterile cockpit.'},
+  {cat:'EMERGENCY',q:'LOC-I stands for:',opts:['Landing on Concrete Immediately','Loss of Control In Flight — leading fatal accident category','Localiser Capture Indication','Low On Centre-line Indication'],a:1,e:'LOC-I: Loss of Control In Flight. Leading fatal accident category worldwide. Rapid onset, requires immediate upset recovery skills. UPRT now mandatory training.'},
+  {cat:'EMERGENCY',q:'Dual engine failure in cruise — first action:',opts:['Contact ATC','Maximise glide (Green Dot speed), engine relight procedure','Depressurise cabin','Squawk 7700 first'],a:1,e:'First: maintain control and best glide speed (Green Dot). ECAM engine relight. RAT deploys auto. Squawk 7700, declare MAYDAY, identify nearest aerodrome.'},
+  {cat:'A320 SYSTEMS',q:'A320 MTOW is:',opts:['64,500 kg','68,000 kg','73,500 kg','77,000 kg'],a:2,e:'A320-214 MTOW: 73,500 kg. MLW: 64,500 kg. MZFW: 61,000 kg. Max fuel: 18,728 kg.'},
+  {cat:'A320 SYSTEMS',q:'VFE for CONF FULL (Full Flap) is:',opts:['200 kt','215 kt','230 kt','177 kt'],a:3,e:'VFE limits: CONF1=230kt, CONF2=215kt, CONF3=200kt, FULL=177kt. VMO=350kt, MMO=M0.82.'},
+  {cat:'NAVIGATION',q:'IFR flight in controlled airspace requires:',opts:['VFR only','Valid IFR clearance, instrument rating, RVSM approval if FL290+','VFR and IFR combined','ATC permission only'],a:1,e:'IFR operations require: IR rating, IFR flight plan filed, ATC clearance, appropriate aircraft equipment. RVSM approval for FL290-FL410.'},
+  {cat:'METEOROLOGY',q:'Volcanic ash is dangerous because:',opts:['Only reduces visibility','Silicates melt in engine → turbine damage, windscreen abrasion, pitot contamination — even at low concentrations','Only high concentrations are dangerous','Only affects piston engines'],a:1,e:'Volcanic ash: melts in turbines (solidifies on blades → surge/flame-out), abrades windscreen, clogs pitot-static. No safe concentration — avoid all ash.'},
+  {cat:'AIR LAW',q:'Pilot in Command final authority means:',opts:['Follows all ATC instructions without exception','Final authority for operation and safety — may deviate from any rule in emergency','Follows company SOPs only','Co-pilot has equal authority'],a:1,e:'PIC has final authority and responsibility for flight safety. May deviate from any regulation or ATC instruction in emergency. Must report deviation after flight.'},
+  {cat:'PERFORMANCE',q:'The effect of a tailwind on landing:',opts:['Reduces landing distance','Increases ground speed at same airspeed → longer ground roll → longer landing distance','No effect on jets','Only affects GA aircraft'],a:1,e:'Tailwind: same airspeed = higher groundspeed = longer distance to stop. Rule of thumb: 5 kt tailwind ≈ +5% landing distance.'},
+  {cat:'CRM & SOP',q:'Pre-flight threat briefing purpose:',opts:['Regulatory compliance only','Proactively identify and discuss threats: weather, NOTAMs, complexity, crew state — so threats are anticipated not surprised','Distribute duties only','Review previous flight'],a:1,e:'TEM threat briefing: discuss anticipated threats before flight so crew is prepared. Reduces surprises during high-workload phases.'},
+  {cat:'A320 SYSTEMS',q:'Autobrake MAX mode activates during:',opts:['Normal landing only','Rejected takeoff (RTO) — provides maximum braking','Taxi operations','Engine start'],a:1,e:'Autobrake RTO (MAX): activates on rejected takeoff above 72 kt. Applies maximum wheel braking. Landing modes: LO (~2 m/s²), MED (~3 m/s²).'},
+  {cat:'METEOROLOGY',q:'Temperature inversion means:',opts:['Normal lapse rate','Temperature increases with altitude instead of decreasing — traps fog/haze beneath','Temperature constant','Cold at surface, warm above is normal'],a:1,e:'Inversion: temperature increases with height (abnormal). Traps moisture, fog, pollution below inversion base. Common in Gulf region (radiative night inversions, subsidence inversions).'},
+  {cat:'A320 SYSTEMS',q:'What does LAND 3 autoland provide?',opts:['Cat I only','Fail-passive or fail-operational autoland for Cat IIIa/b','Cat II only','Same as LAND 2'],a:1,e:'LAND 3 fail-passive: Cat IIIa (DH 50ft, RVR 200m). LAND 3 fail-operational (dual channel): Cat IIIb (DH 15ft, RVR 75m). Requires specific aircraft/airport approval.'},
+  {cat:'NAVIGATION',q:'Flight director function:',opts:['Controls engines','Shows pitch/roll command bars on PFD — visual guidance for pilot to follow selected modes manually','Controls autopilot only','Provides ATC directions'],a:1,e:'FD: command bars on PFD showing required pitch and roll inputs to follow selected guidance mode. Pilot can fly manually following bars or engage autopilot.'},
+  {cat:'PERFORMANCE',q:'What is thrust-specific fuel consumption (TSFC)?',opts:['Total sector fuel','Fuel burned per unit thrust per unit time — engine efficiency measure. Lower = more efficient','Fuel cost per flight','Thrust increase factor'],a:1,e:'TSFC: kg fuel/hr per kN thrust (or lb/hr per lbf). Lower TSFC = more efficient engine. CFM56-5B cruise TSFC ~0.36 lb/lbf/hr. Used in performance calculations.'},
+  {cat:'CRM & SOP',q:'Standard callout at V1 on A320:',opts:['Full thrust applied','Remove hand from thrust levers — do not reject above V1','Apply maximum brakes','Call "Positive rate"'],a:1,e:'At V1 callout: remove hand from thrust levers — visual/tactile commitment to continue takeoff. Any reject above V1 is more dangerous than continuing with engine failure.'},
+  {cat:'EMERGENCY',q:'If flap system fails, partial flap landing requires:',opts:['No change needed','Higher VAPP from ECAM/FCOM, longer runway required, different technique','Normal Vapp, same runway','Cannot land without full flap'],a:1,e:'Partial flap (CONF 3 or less): ECAM provides applicable VAPP. Significant increase in speed and landing distance. FCOM abnormal procedure applies. Check runway available.'},
+  {cat:'AIR LAW',q:'Class B airspace requirements:',opts:['VFR only, no clearance needed','All aircraft require ATC clearance — IFR and VFR both receive separation','IFR only','Advisory service only'],a:1,e:'Class B: ALL aircraft (IFR and VFR) require clearance and receive positive separation from ATC. Busiest/most complex airspace (e.g. around major hub airports).'},
+  {cat:'NAVIGATION',q:'MORA on Jeppesen charts provides:',opts:['Maximum route altitude','1000 ft obstacle clearance within 10 NM of route (2000 ft mountainous)','Mandatory minimum altitude','Off-route deviation limit'],a:1,e:'MORA: Minimum Off-Route Altitude. 1000 ft clearance (2000 ft in mountainous) within 10 NM of centreline. Grid MORA covers entire chart grid square.'},
+  {cat:'PERFORMANCE',q:'Green dot speed is used for:',opts:['Gear extension speed','Engine-out procedures and best L/D in clean config (~210-250 kt weight-dependent)','Maximum cruise speed','Approach speed'],a:1,e:'Green dot: best lift-to-drag ratio in clean config. Used for single-engine holds, OEI altitude gain, and engine-out enroute operations.'},
+  {cat:'CRM & SOP',q:'Dirty Dozen in CRM refers to:',opts:['12 weather types','12 human factors leading to errors: distraction, complacency, fatigue, pressure, stress, lack of communication, knowledge, teamwork, awareness, resources, assertiveness, norms','12 emergency procedures','12 regulatory violations'],a:1,e:'Dirty Dozen: 12 human factors most implicated in aviation accidents (Transport Canada). Used in MRM and CRM training worldwide.'},
+  {cat:'A320 SYSTEMS',q:'A320 service ceiling:',opts:['FL350','FL370','FL390','FL410'],a:2,e:'A320 service ceiling FL390. Typical cruise FL350-FL390. MMO M0.82, VMO 350 kt.'},
+  {cat:'METEOROLOGY',q:'Orographic lift causes:',opts:['Sea breezes','Cloud and precipitation on windward mountain side; dry foehn descent on lee side','Mountain cooling only','No aviation significance'],a:1,e:'Orographic lift: moist air forced over mountains clouds/precipitates (windward). Lee side: warm dry foehn descent. Hajar mountains affect Oman operations significantly.'},
+  {cat:'NAVIGATION',q:'RNP AR approach differs from standard RNAV because:',opts:['Uses VOR only','Allows curved segments (radius-to-fix legs), very tight accuracy (to 0.1 NM), requires special crew/aircraft authorisation','Available to all aircraft','Only used in polar regions'],a:1,e:'RNP AR: advanced RNP with curved segments. Tight accuracy (down to RNP 0.1 NM). Requires specific FMGS capability, crew training, and regulatory authorization. Used in challenging terrain.'},
+  {cat:'EMERGENCY',q:'Medical emergency in flight procedure:',opts:['Divert immediately always','Use AED/first aid, get medically qualified help, contact MedLink via ATC, assess diversion based on time/destination proximity','Only advise cabin crew','Do nothing until landing'],a:1,e:'Medical emergency: assess severity, use onboard equipment and qualified help, contact ground medical (MedLink) via ATC/VHF, assess diversion vs destination time. Company coordination.'},
+  {cat:'AIR LAW',q:'Maximum annual flight hours EASA:',opts:['600 hrs','750 hrs','900 hrs','1000 hrs'],a:2,e:'EASA FTL: maximum 900 hours/year. Maximum 100 hours in any 28 consecutive days. Block time limits apply.'},
+  {cat:'CRM & SOP',q:'Gate-to-gate concept means:',opts:['Airport gate assignment','Crew responsibility from departure gate pre-flight through to parking at destination — all phases','Fuel gate procedure','Boarding process'],a:1,e:'Gate to gate: crew operational responsibility encompasses all activities from pre-flight planning and departure gate through landing and final parking at destination.'},
+  {cat:'A320 SYSTEMS',q:'VMO on A320 is:',opts:['280 kt','320 kt','350 kt','380 kt'],a:2,e:'VMO: 350 kt IAS. MMO: M0.82. VLE (landing gear extended max): 280 kt. VLO extend: 250 kt, retract: 220 kt.'},
+  {cat:'METEOROLOGY',q:'What does CAVOK mean in a METAR?',opts:['Cloud and Visibility OK — vis <10km, clouds below 1500ft','Ceiling and Visibility OK — vis ≥10km, no cloud below 5000ft, no CB, no significant weather','Cloud Above Visibility Optimum Knots','Completely All Visibility OK'],a:1,e:'CAVOK: Ceiling and Visibility OK. Visibility ≥10 km, no cloud below 5000 ft or MSA (whichever higher), no CB, no significant weather. Replaces visibility, cloud and weather groups.'},
+  {cat:'PERFORMANCE',q:'What is the significance of V1 in rejected takeoff?',opts:['Must reject at V1 if engine fails','V1 is the last speed at which stopping on remaining runway is guaranteed — below V1 reject, above V1 continue','V1 is rotation speed','V1 applies only to engine failure'],a:1,e:'V1: decision speed. Below V1: abort if required (sufficient runway to stop). Above V1: committed to takeoff — rejected takeoff above V1 more dangerous than continued flight on remaining engines.'},
+  {cat:'CRM & SOP',q:'Task saturation management strategy:',opts:['Pilot flying handles everything','Aviate-Navigate-Communicate priority, delegate non-critical tasks, use automation, crew speak up','Increase speed to resolve faster','Ignore secondary tasks'],a:1,e:'Task saturation: workload exceeds capacity → prioritise Aviate-Navigate-Communicate. Delegate. Use automation. Brief and cross-check. Speak up.'},
+  {cat:'A320 SYSTEMS',q:'Max crosswind limit A320 on dry runway:',opts:['20 kt','25 kt','29 kt','35 kt'],a:2,e:'A320 max demonstrated crosswind: 29 kt dry runway. Wet runway limit may be lower operationally. Always consult current performance documentation.'},
+  {cat:'METEOROLOGY',q:'A warm front weather compared to cold front:',opts:['Warm front more severe','Warm front: gradual, widespread stratus/fog. Cold front: rapid intense CB/thunderstorms, narrow band, quick clearing after passage','No difference','Cold front always less severe'],a:1,e:'Warm front: slow-moving, gradual deterioration (cirrus → stratus → fog), wide area, persistent rain. Cold front: fast, intense, narrow CB band, severe then rapid clearing.'},
+  {cat:'EMERGENCY',q:'Runway incursion during takeoff roll above V1:',opts:['Reject immediately','Continue — rotate at VR, max thrust, climb and clear obstacle','Reduce speed only','Turn off runway'],a:1,e:'Above V1: committed to takeoff. Cannot stop on remaining runway. Continue, rotate at VR, maximum thrust, climb to clear obstacle. Advise ATC immediately.'},
+  {cat:'AIR LAW',q:'Special VFR allows:',opts:['VFR above FL195','VFR-rated aircraft in control zone below VMC minima (min 1500m vis, clear of cloud) with explicit ATC clearance','Night VFR without IR','High speed VFR'],a:1,e:'SVFR: allows flight in CTR below normal VMC (min 1500m vis, clear of cloud, see surface). Requires specific ATC clearance. Not available in all CTRs.'},
+  {cat:'NAVIGATION',q:'DME measures:',opts:['Bearing only','Slant range distance to station (±0.2 NM accuracy)','True airspeed','Magnetic heading'],a:1,e:'DME: Distance Measuring Equipment. Aircraft interrogates ground transponder, measures round-trip time → slant range. Accuracy ±0.2 NM. Collocated with VOR for VOR/DME position fixing.'},
+  {cat:'PERFORMANCE',q:'MEA vs MOCA difference:',opts:['Same thing','MEA provides navaid signal coverage + obstacle clearance. MOCA: obstacle clearance only — navaid coverage only within 22 NM of station','MEA is lower','MOCA is always higher'],a:1,e:'MEA: Minimum En-Route Altitude — obstacle clearance AND navaid reception throughout. MOCA: obstacle clearance guaranteed but navaid signal only within 22 NM of defining navaid.'},
+  {cat:'CRM & SOP',q:'Shared mental model means:',opts:['Both pilots read same checklist','Both crew have identical understanding of situation, threats, plan and intentions — achieved through briefings and cross-checks','Silent cockpit','One pilot leads, other follows passively'],a:1,e:'Shared mental model: mutual situational awareness and identical understanding of situation and plan. Reduces miscommunication, improves coordination and workload management.'},
+  {cat:'A320 SYSTEMS',q:'ECAM E/WD (upper screen) displays:',opts:['Navigation only','Engine parameters (N1, EGT, FF, EPR) and flight warnings/alerts','Weather radar','Airport moving map'],a:1,e:'E/WD: upper ECAM. Engine parameters (N1, EGT, fuel flow) upper half. Warnings, memos, fuel quantity lower half. SD (lower): systems synoptic pages.'},
+  {cat:'METEOROLOGY',q:'Jet stream affects cruise flight by:',opts:['Causing severe icing','Strong tailwinds save significant fuel/time; headwinds add fuel burn. Associated turbulence in clear air (CAT) at edges','Only affecting altitude','No significant effect on jets'],a:1,e:'Jet stream: strong high-altitude wind core (up to 200+ kt). Tailwind: major fuel/time savings. Headwind: significant fuel penalty. CAT at jet stream edges — avoid clear air turbulence zones.'},
+  {cat:'AIR LAW',q:'NOTAM stands for:',opts:['Notice to All Members','Notice to Air Missions (Airmen) — temporary aeronautical information','Navigation Order and Traffic Aircraft Management','Normal Operations and Tactics Aerodrome Manual'],a:1,e:'NOTAM: Notice to Air Missions (previously "to Airmen"). Contains temporary information about aerodromes, airspace, navaids, procedures. Essential pre-flight check.'},
+  {cat:'NAVIGATION',q:'MAP (Missed Approach Point) is:',opts:['Point where approach begins','Latest point by which go-around must be initiated if visual not established','Airport marking point','Maximum approach point'],a:1,e:'MAP: point at which missed approach must be initiated if required visual reference not established. On ILS: Decision Height. On non-precision: specific fix, altitude or distance.'},
+  {cat:'CRM & SOP',q:'Turbulence penetration procedure on A320:',opts:['Max speed for strength','Reduce to turbulence penetration speed (~340kt/M0.82), seatbelt sign ON, brief cabin crew, advise ATC, consider altitude change','Increase speed','Descend immediately'],a:1,e:'Turbulence: reduce to 340 kt/M0.82 (or AFM turbulent speed). Seatbelt sign ON. Cabin crew seated. ATC notify. Passenger PA. Consider altitude change to avoid worst turbulence.'},
+  {cat:'EMERGENCY',q:'Bomb threat in flight requires:',opts:['Ignore unless visible','Apply bomb threat checklist, notify ATC/company, search per procedure, do not touch suspicious item, divert as appropriate, brief security on ground','Land immediately anywhere','Depressurise cabin'],a:1,e:'Bomb threat procedure: notify ATC, apply company bomb threat checklist, systematic search, if suspicious item found — do not touch, isolate area, divert, brief security on ground.'},
+  {cat:'A320 SYSTEMS',q:'Maximum fuel capacity A320:',opts:['14,000 kg','16,000 kg','18,728 kg','22,000 kg'],a:2,e:'A320 maximum usable fuel: 18,728 kg in three tanks (centre + two wing tanks). Centre tank used first to maintain wing bending relief.'},
+];
+
+let filteredQuiz=[...quizData];let qIdx=0;let qCorrect=0;let qAnswered=0;let activeQCat='ALL';
+const qCats=[...new Set(quizData.map(q=>q.cat))];
+function buildQuizFilters(){
+  document.getElementById('quizFilters').innerHTML=['ALL',...qCats].map((c,i)=>`<button class="fc-filter${i===0?' active':''}" onclick="setQuizCat('${c}',this)">${c}</button>`).join('');
+}
+function setQuizCat(cat,el){
+  document.querySelectorAll('#quizFilters .fc-filter').forEach(f=>f.classList.remove('active'));el.classList.add('active');
+  activeQCat=cat;filteredQuiz=cat==='ALL'?[...quizData]:quizData.filter(q=>q.cat===cat);
+  qIdx=0;qCorrect=0;qAnswered=0;
+  document.getElementById('quizComplete').style.display='none';document.getElementById('quizCard').style.display='block';
+  loadQ();
+}
+function loadQ(){
+  if(!filteredQuiz.length)return;if(qIdx>=filteredQuiz.length){showQComplete();return;}
+  const q=filteredQuiz[qIdx];
+  document.getElementById('qNum').textContent=qIdx+1;document.getElementById('qMax').textContent=filteredQuiz.length;
+  document.getElementById('qText').textContent=q.q;document.getElementById('qCatLabel').textContent=q.cat;
+  document.getElementById('qFb').className='quiz-fb';document.getElementById('qNextBtn').style.display='none';
+  document.getElementById('qOpts').innerHTML=q.opts.map((o,i)=>`<button class="q-opt" onclick="selectA(${i})">${o}</button>`).join('');
+  updateQScore();
+}
+function selectA(i){
+  const q=filteredQuiz[qIdx];const opts=document.querySelectorAll('.q-opt');
+  opts.forEach(o=>{o.classList.add('disabled');o.onclick=null;});qAnswered++;
+  const fb=document.getElementById('qFb');
+  if(i===q.a){qCorrect++;opts[i].classList.add('correct');fb.className='quiz-fb ok';fb.textContent='✅ Correct! '+q.e;toast('✅ Correct!');}
+  else{opts[i].classList.add('wrong');opts[q.a].classList.add('correct');fb.className='quiz-fb fail';fb.textContent='❌ '+q.e;toast('❌ Study explanation');}
+  updateQScore();document.getElementById('qNextBtn').style.display='block';
+}
+function nextQ(){qIdx++;loadQ();}
+function updateQScore(){
+  document.getElementById('qScore').textContent=qCorrect;document.getElementById('qTotal').textContent=qAnswered;
+  const pct=qAnswered>0?Math.round(qCorrect/qAnswered*100):0;
+  document.getElementById('qPct').textContent=pct+'%';document.getElementById('qScoreBar').style.width=pct+'%';
+  document.getElementById('homeQuiz').textContent=pct+'%';
+}
+function showQComplete(){
+  document.getElementById('quizCard').style.display='none';
+  const el=document.getElementById('quizComplete');el.style.display='flex';
+  const pct=filteredQuiz.length>0?Math.round(qCorrect/filteredQuiz.length*100):0;
+  document.getElementById('qFinalScore').textContent=`${qCorrect}/${filteredQuiz.length} · ${pct}%`;
+  const msg=pct>=90?'🏆 Outstanding — ATPL-level mastery!':pct>=75?'⭐ Excellent knowledge!':pct>=60?'👍 Good — review missed topics':'📚 Keep studying, you\'ll ace it!';
+  document.getElementById('qFinalMsg').textContent=msg;
+}
+function resetQuiz(){qIdx=0;qCorrect=0;qAnswered=0;filteredQuiz=activeQCat==='ALL'?[...quizData]:quizData.filter(q=>q.cat===activeQCat);document.getElementById('quizComplete').style.display='none';document.getElementById('quizCard').style.display='block';loadQ();}
+
+// AIRPORTS
+const airports=[
+  {icao:'OOMS',iata:'MCT',name:'Muscat Int\'l Airport',city:'Muscat, Oman',elev:'48 ft',rwy:'08L/26R (4075m) · 08R/26L (3576m)',ils:'ILS CAT I both ends',fuel:'JET A1',atis:'118.2',twr:'118.3',app:'119.0',notes:'Home base · SalamAir HQ · Terminal 1 & 2 · Parallel runway ops'},
+  {icao:'OOSA',iata:'SLL',name:'Salalah Airport',city:'Salalah, Oman',elev:'73 ft',rwy:'07/25 (3000m)',ils:'ILS CAT I Rwy 07',fuel:'JET A1',atis:'127.55',twr:'118.1',app:'119.7',notes:'Khareef fog Jun-Sep · seasonal low visibility · terrain west'},
+  {icao:'OMDB',iata:'DXB',name:'Dubai International',city:'Dubai, UAE',elev:'62 ft',rwy:'12L/30R (4447m) · 12R/30L (4364m)',ils:'ILS CAT IIIB',fuel:'JET A1',atis:'126.27',twr:'118.75',app:'124.9',notes:'Parallel runway ops · complex TMA · high traffic density'},
+  {icao:'OERK',iata:'RUH',name:'King Khalid Int\'l',city:'Riyadh, Saudi Arabia',elev:'2049 ft',rwy:'15L/33R (4206m) · 15R/33L (4206m)',ils:'ILS CAT I',fuel:'JET A1',atis:'126.9',twr:'118.1',app:'120.5',notes:'High elevation — density altitude check essential · hot summers'},
+  {icao:'OPKC',iata:'KHI',name:'Jinnah Int\'l Airport',city:'Karachi, Pakistan',elev:'100 ft',rwy:'07L/25R (3200m) · 07R/25L (2927m)',ils:'ILS CAT I Rwy 25R',fuel:'JET A1',atis:'126.4',twr:'118.7',app:'119.1',notes:'Busy TMA · noise abatement procedures in effect'},
+  {icao:'VABB',iata:'BOM',name:'Chhatrapati Shivaji Int\'l',city:'Mumbai, India',elev:'37 ft',rwy:'09/27 (3445m) · 14/32 (2925m)',ils:'ILS CAT II Rwy 27',fuel:'ATF',atis:'126.4',twr:'118.1',app:'119.2',notes:'Restricted airspace proximity · curfew hours apply · monsoon ops'},
+  {icao:'OMAA',iata:'AUH',name:'Abu Dhabi Int\'l',city:'Abu Dhabi, UAE',elev:'88 ft',rwy:'13L/31R (4100m) · 13R/31L (4100m)',ils:'ILS CAT I',fuel:'JET A1',atis:'128.45',twr:'118.3',app:'124.35',notes:'Midfield terminal — confirm stand/parking area · new terminal'},
+  {icao:'OKBK',iata:'KWI',name:'Kuwait Int\'l Airport',city:'Kuwait City, Kuwait',elev:'206 ft',rwy:'15L/33R (3401m) · 15R/33L (3100m)',ils:'ILS CAT I',fuel:'JET A1',atis:'126.2',twr:'118.1',app:'119.7',notes:'High traffic density · noise abatement mandatory'},
+  {icao:'OBBI',iata:'BAH',name:'Bahrain Int\'l Airport',city:'Manama, Bahrain',elev:'6 ft',rwy:'12L/30R (3962m) · 12R/30L (2743m)',ils:'ILS CAT I',fuel:'JET A1',atis:'127.55',twr:'118.3',app:'119.5',notes:'Naval base co-located · strict military procedures apply'},
+  {icao:'OTBD',iata:'DOH',name:'Hamad Int\'l Airport',city:'Doha, Qatar',elev:'13 ft',rwy:'16L/34R (5750m) · 16R/34L (4850m)',ils:'ILS CAT IIIA',fuel:'JET A1',atis:'128.15',twr:'118.15',app:'119.1',notes:'World\'s longest runways · advanced Cat III capability'},
+  {icao:'VECC',iata:'CCU',name:'Netaji Subhas Chandra Bose Int\'l',city:'Kolkata, India',elev:'17 ft',rwy:'01L/19R (3600m) · 01R/19L (2400m)',ils:'ILS CAT I',fuel:'ATF',atis:'126.3',twr:'118.1',app:'119.3',notes:'Pre-monsoon haze Jan-May · monsoon ops Jun-Sep'},
+  {icao:'OOKB',iata:'KHS',name:'Khasab Airport',city:'Khasab, Oman',elev:'100 ft',rwy:'22/04 (2600m)',ils:'Non-precision approaches',fuel:'JET A1',atis:'N/A',twr:'118.1',app:'119.7',notes:'Musandam enclave · terrain all around · visual approach mandatory · no ILS'},
+];
+function buildAirports(){
+  document.getElementById('airportGrid').innerHTML=airports.map((a,i)=>`<div class="apt-card" onclick="showApt(${i})"><div class="apt-icao">${a.icao}</div><div class="apt-iata">${a.iata}</div><div class="apt-name">${a.name}</div><div style="font-size:0.62rem;color:var(--muted);margin-top:0.3rem">${a.city}</div></div>`).join('');
+}
+function showApt(i){
+  const a=airports[i];const el=document.getElementById('aptDetail');
+  el.innerHTML=`<div class="sec-hdr"><div class="sec-title">${a.icao} / ${a.iata} — ${a.name}</div><div class="sec-badge">${a.city}</div></div><div class="grid-3" style="gap:0.75rem;margin-bottom:1rem;"><div><label>ELEVATION</label><div style="color:var(--cyan);font-family:var(--font-mono)">${a.elev}</div></div><div><label>FUEL</label><div style="color:var(--amber);font-family:var(--font-mono)">${a.fuel}</div></div><div><label>ILS</label><div style="color:var(--green);font-family:var(--font-mono);font-size:0.72rem">${a.ils}</div></div></div><div class="grid-3" style="gap:0.75rem;margin-bottom:1rem;"><div><label>ATIS</label><div style="color:var(--cyan);font-family:var(--font-mono)">${a.atis} MHz</div></div><div><label>TOWER</label><div style="color:var(--cyan);font-family:var(--font-mono)">${a.twr} MHz</div></div><div><label>APPROACH</label><div style="color:var(--cyan);font-family:var(--font-mono)">${a.app} MHz</div></div></div><div style="margin-bottom:0.75rem;"><label>RUNWAYS</label><div style="color:var(--white);font-family:var(--font-mono);font-size:0.75rem">${a.rwy}</div></div><div><label>NOTES</label><div style="color:var(--amber);font-size:0.8rem">${a.notes}</div></div>`;
+  el.classList.add('show');el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+// PHONETIC ALPHABET
+const phonetic=[['A','Alpha','AL-fah'],['B','Bravo','BRAH-voh'],['C','Charlie','CHAR-lee'],['D','Delta','DEL-tah'],['E','Echo','EK-oh'],['F','Foxtrot','FOKS-trot'],['G','Golf','GOLF'],['H','Hotel','HOH-tel'],['I','India','IN-dee-ah'],['J','Juliet','JEW-lee-et'],['K','Kilo','KEY-loh'],['L','Lima','LEE-mah'],['M','Mike','MIKE'],['N','November','no-VEM-ber'],['O','Oscar','OSS-car'],['P','Papa','PAH-pah'],['Q','Quebec','keh-BECK'],['R','Romeo','ROW-me-oh'],['S','Sierra','see-AIR-rah'],['T','Tango','TANG-go'],['U','Uniform','YOU-nee-form'],['V','Victor','VIK-tah'],['W','Whiskey','WISS-key'],['X','X-ray','ECKS-ray'],['Y','Yankee','YANG-key'],['Z','Zulu','ZOO-loo']];
+function buildPhonetic(){document.getElementById('phoneticGrid').innerHTML=phonetic.map(p=>`<div class="ph-item" onclick="toast('${p[0]} — ${p[1]}')"><div class="ph-letter">${p[0]}</div><div class="ph-word">${p[1]}</div><div class="ph-pron">${p[2]}</div></div>`).join('');}
+
+// METAR DECODER
+function decodeMETAR(){
+  const raw=document.getElementById('metarInput').value.trim();if(!raw){toast('Enter a METAR string first');return;}
+  const parts=raw.split(/\s+/);
+  const icao=parts[0]||'—';const time=parts[1]||'—';
+  const wind=parts.find(p=>/^\d{5}(G\d+)?KT$/.test(p))||parts.find(p=>/VRB\d+KT/.test(p))||'—';
+  const vis=parts.find(p=>/^\d{4}$/.test(p)||p==='9999'||p==='CAVOK')||'—';
+  const temp=parts.find(p=>/^M?\d+\/M?\d+$/.test(p))||'—';
+  const qnh=parts.find(p=>/^Q\d{4}$/.test(p))||'—';
+  const trend=parts.find(p=>['NOSIG','TEMPO','BECMG','PROB30','PROB40'].includes(p))||'—';
+  const clouds=parts.filter(p=>/^(FEW|SCT|BKN|OVC)\d{3}(CB|TCU)?$/.test(p)).join(' ')||'NIL';
+  const el=document.getElementById('metarResult');
+  el.innerHTML=`<div class="result-row"><span class="result-key">STATION ICAO</span><span class="result-val">${icao}</span></div><div class="result-row"><span class="result-key">DATE/TIME UTC</span><span class="result-val">${time}</span></div><div class="result-row"><span class="result-key">WIND</span><span class="result-val">${wind}</span></div><div class="result-row"><span class="result-key">VISIBILITY</span><span class="result-val">${vis==='9999'?'≥10 km':vis==='CAVOK'?'CAVOK (≥10km, no cloud <5000ft, no sig WX)':vis+' m'}</span></div><div class="result-row"><span class="result-key">CLOUD</span><span class="result-val">${clouds}</span></div><div class="result-row"><span class="result-key">TEMP / DEW POINT</span><span class="result-val">${temp}</span></div><div class="result-row"><span class="result-key">QNH</span><span class="result-val">${qnh}</span></div><div class="result-row"><span class="result-key">TREND</span><span class="result-val">${trend}</span></div><div class="result-row"><span class="result-key">RAW STRING</span><span class="result-val" style="font-size:0.6rem;color:var(--muted)">${raw}</span></div>`;
+  el.classList.add('show');toast('📻 METAR decoded');
+}
+
+// UNIT CONVERTER
+function convertUnit(){
+  const v=parseFloat(document.getElementById('ucVal').value);const t=document.getElementById('ucType').value;
+  if(isNaN(v)){toast('Enter a value first');return;}
+  const conv={'kt-kmh':[v*1.852,'kt','km/h'],'kmh-kt':[v/1.852,'km/h','kt'],'ft-m':[v*0.3048,'ft','m'],'m-ft':[v/0.3048,'m','ft'],'nm-km':[v*1.852,'NM','km'],'km-nm':[v/1.852,'km','NM'],'kg-lbs':[v*2.20462,'kg','lbs'],'lbs-kg':[v/2.20462,'lbs','kg'],'c-f':[v*9/5+32,'°C','°F'],'f-c':[(v-32)*5/9,'°F','°C'],'hpa-inhg':[v*0.02953,'hPa','inHg'],'inhg-hpa':[v/0.02953,'inHg','hPa']};
+  const[r,f,to]=conv[t];
+  document.getElementById('ucResult').innerHTML=`<div class="result-row"><span class="result-key">${v} ${f}</span><span class="result-val">${r.toFixed(4)} ${to}</span></div>`;
+  document.getElementById('ucResult').classList.add('show');
+}
+
+// INIT
+buildFCFilters();updateFC();
+buildQuizFilters();loadQ();
+buildAirports();
+buildPhonetic();
+drawBlankWB();
+</script>
+
+<script>
+// Inline PWA setup
+(function(){
+  // Inline manifest via blob
+  const manifestData = '{\n  "name": "Flight Companion — SalamAir",\n  "short_name": "Flight Companion",\n  "description": "A320 pilot tools, logbook, flashcards, quiz and reference",\n  "start_url": ".",\n  "display": "standalone",\n  "background_color": "#020408",\n  "theme_color": "#020408",\n  "orientation": "any",\n  "icons": [\n    {"src": "data:image/png;base64,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", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},\n    {"src": "data:image/png;base64,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", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}\n  ]\n}';
+  const blob = new Blob([manifestData], {type:'application/json'});
+  const manifestURL = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = manifestURL;
+  document.head.appendChild(link);
+
+  // Inline apple touch icon
+  const iconLink = document.createElement('link');
+  iconLink.rel = 'apple-touch-icon';
+  iconLink.href = 'data:image/png;base64,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';
+  document.head.appendChild(iconLink);
+
+  // Inline service worker via blob
+  if('serviceWorker' in navigator){
+    const swCode = "\nconst CACHE='fc-v1';\nconst ASSETS=['./'];\nself.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));self.skipWaiting();});\nself.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});\nself.addEventListener('fetch',e=>{e.respondWith(caches.match(e.request).then(cached=>{if(cached)return cached;return fetch(e.request).catch(()=>caches.match('./'));}).catch(()=>caches.match('./')));});\n";
+    const swBlob = new Blob([swCode], {type:'application/javascript'});
+    const swURL = URL.createObjectURL(swBlob);
+    window.addEventListener('load',()=>{
+      navigator.serviceWorker.register(swURL, {scope:'./'} )
+        .then(()=>console.log('✈️ Flight Companion PWA ready'))
+        .catch(e=>console.log('SW note:',e));
+    });
+  }
+
+  // iOS install banner hint
+  const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  const isStandalone = window.navigator.standalone;
+  if(isIOS && !isStandalone){
+    setTimeout(()=>{
+      const banner = document.createElement('div');
+      banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(0,200,255,0.12);border:1px solid rgba(0,200,255,0.4);border-radius:8px;padding:12px 18px;font-family:Share Tech Mono,monospace;font-size:12px;color:#00c8ff;z-index:9998;text-align:center;backdrop-filter:blur(20px);max-width:300px;';
+      banner.innerHTML = '✈️ Add to Home Screen<br><span style="color:rgba(180,220,255,0.6);font-size:10px;">Tap Share → Add to Home Screen<br>for full app experience</span><br><button onclick="this.parentElement.remove()" style="margin-top:8px;background:transparent;border:1px solid rgba(0,200,255,0.3);color:#00c8ff;padding:4px 12px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px;">DISMISS</button>';
+      document.body.appendChild(banner);
+      setTimeout(()=>banner.remove(), 12000);
+    }, 3000);
+  }
+})();
+</script>
+
+</body>
+</html>
